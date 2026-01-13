@@ -40,5 +40,118 @@ Vigilant engine is made from two main partitions, the factory partition, and the
 * **`ota_0` (Main app slot, ~2.94 MB @ 0x110000):** This is the primary firmware slot the device normally runs. It’s much larger than `factory`, so it can hold the full-featured application build and is the one we’ll typically update/replace during development.
 
 ## Flashing the ESP32
-To flash the main programm, you first need to flash the recovery partition. This part of the project can be found in the ```/vigilant-engine-recovery``` directory. You can use ESP-IDF's built in ```"Build, Flash and Monitor"``` action to flash to the ESP. After flashing, the ESP will open an AP, with the SSID being ```"VE-Recovery"```, the password is ```"starstreak"```. When you connected successfully, the webserver should be at ```http://192.168.4.1/```. You then have the option to upload a binary, and then the ability to flash. When you have selected a valid .bin file, you can press "Upload" to Flash the ESP. When the ESP accepts the binary file, it will return ```"OTA OK: wrote %d bytes. Rebooting to ota_0…"```
-The ESP will then boot into the ota_0 partition. Vigilant engine has has route built into the webserver called ```/rebootfactory```, which enables you to boot into the recovery app, allowing you to flash new firmware.
+~~To flash the main programm, you first need to flash the recovery partition. This part of the project can be found in the ```/vigilant-engine-recovery``` directory. You can use ESP-IDF's built in ```"Build, Flash and Monitor"``` action to flash to the ESP. After flashing, the ESP will open an AP, with the SSID being ```"VE-Recovery"```, the password is ```"starstreak"```. When you connected successfully, the webserver should be at ```http://192.168.4.1/```. You then have the option to upload a binary, and then the ability to flash. When you have selected a valid .bin file, you can press "Upload" to Flash the ESP. When the ESP accepts the binary file, it will return ```"OTA OK: wrote %d bytes. Rebooting to ota_0…"```
+The ESP will then boot into the ota_0 partition. Vigilant engine has has route built into the webserver called ```/rebootfactory```, which enables you to boot into the recovery app, allowing you to flash new firmware.~~
+
+**This is not the best way to flash! Please refer to the following section for flashing.**
+
+# Flash Helper (`flash.py`) — Vigilant Engine
+
+This repository uses a custom partition layout:
+
+- **`factory`** → Recovery firmware (1 MB)
+- **`ota_0`** → Main firmware (rest of flash)
+- **`otadata`** → OTA boot selection data
+
+Because a `factory` app partition exists, running **`idf.py flash`** will typically flash the application into **`factory`** (and overwrite Recovery).  
+This script avoids that by **flashing by partition name**.
+
+---
+
+## What `flash.py` does
+
+`flash.py` is a cross-platform (Windows/Linux\*/macOS\*) helper that: 
+
+1. **Builds** the requested firmware (optional)
+2. **Flashes** the produced `.bin` into the correct partition using ESP-IDF’s `parttool.py`
+3. Prevents accidental overwrites of the Recovery firmware
+
+It supports two targets:
+- **Main firmware** → flashes `build/vigilant-engine.bin` into partition **`ota_0`**
+- **Recovery firmware** → flashes `recovery/build/vigilant-engine-recovery.bin` into partition **`factory`**
+
+*\*Note that macOS and Linux are untested at this point of time.*
+
+---
+
+## Requirements
+
+- **ESP-IDF 5.5.1** installed
+- You must run this from an environment where ESP-IDF is exported:
+  - Windows: *ESP-IDF PowerShell* / *ESP-IDF Command Prompt*
+  - Linux/macOS: run `export.sh` in your shell
+  - **Ideally use the built in ESP-IDF terminal in vs-code**
+
+The script relies on:
+
+- `IDF_PATH` environment variable (set by ESP-IDF)
+- A working Python installation
+
+---
+
+## Usage
+
+From the repository root:
+
+### Flash Main firmware (to `ota_0`)
+**Windows**
+```powershell
+python .\flash.py main --port COM7
+```
+**Linux/macOS**
+```sh
+python3 ./flash.py main --port /dev/ttyACM0
+```
+### Flash Recovery firmware (to `factory`)
+**Windows**
+```powershell
+python .\flash.py recovery --port COM7
+```
+**Linux/macOS**
+```sh
+python3 ./flash.py recovery --port /dev/ttyACM0
+```
+
+## Options
+
+---
+**`--port`** **(required)** Serial port of the ESP device.
+
+Examples:
+  - Windows: `COM3`, `COM7`
+  - Linux: `/dev/ttyACM0`, `/dev/ttyUSB0`
+---
+
+**`--baud`** *(optional)* Baud rate for flashing. Default is `921600`.
+
+Example:
+- Windows: `python3 ./flash.py main --port COM7 --baud 460800`
+- Linux: `python3 ./flash.py main --port /dev/ttyACM0 --baud 460800`
+
+---
+
+**`--no-build`** *(optional)* Skips the build step and only flashes the existing `.bin`.
+
+Example:
+- Windows: `python3 ./flash.py main --port COM7 --no-build`
+- Linux: `python3 ./flash.py main --port /dev/ttyACM0 --no-build`
+
+---
+
+## Troubleshooting
+`IDF_PATH is not set` - You are not in an ESP-IDF exported shell.
+- Windows: open ESP-IDF PowerShell
+- Linux/macOS: source export.sh
+
+`BIN not found` - Make sure the build succeeded and the files exist:
+- `build/vigilant-engine.bin`
+- `recovery/build/vigilant-engine-recovery.bin`
+
+#### Permission / port errors
+- Close serial monitors (e.g. idf.py monitor) before flashing
+- Ensure the correct port is used
+
+#### Safety notes
+- Use main for everyday development — it will not touch Recovery.
+- Use recovery only when you intentionally want to update the Recovery partition.
+- Keep your partition table stable across devices if you flash existing hardware in the field.
