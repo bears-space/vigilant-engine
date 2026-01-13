@@ -8,7 +8,9 @@
 #include "esp_netif.h"
 #include "esp_event.h"
 #include "esp_wifi.h"
-
+#include "esp_ota_ops.h"
+#include "esp_partition.h"
+#include "esp_system.h"
 
 #include "http_server.h"
 
@@ -42,6 +44,18 @@ static void ap_cfg_fixup(wifi_config_t *cfg)
     if (cfg->ap.password[0] == '\0') {
         cfg->ap.authmode = WIFI_AUTH_OPEN;
     }
+}
+
+void reboot_to_recovery(void)
+{
+    const esp_partition_t *factory =
+        esp_partition_find_first(ESP_PARTITION_TYPE_APP,
+                                 ESP_PARTITION_SUBTYPE_APP_FACTORY,
+                                 NULL);
+    if (!factory) return;
+
+    esp_ota_set_boot_partition(factory);
+    esp_restart();
 }
 
 static void wifi_evt(void* arg, esp_event_base_t base, int32_t id, void* data)

@@ -110,6 +110,27 @@ static esp_err_t ota_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t reboot_factory_handler(httpd_req_t *req)
+{
+    const esp_partition_t *factory =
+        esp_partition_find_first(ESP_PARTITION_TYPE_APP,
+                                 ESP_PARTITION_SUBTYPE_APP_FACTORY,
+                                 NULL);
+
+    if (!factory) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "No factory partition");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_sendstr(req, "OK, rebooting to factory...");
+
+    vTaskDelay(pdMS_TO_TICKS(300));
+    ESP_ERROR_CHECK(esp_ota_set_boot_partition(factory));
+    esp_restart();
+    return ESP_OK;
+}
+
+
 esp_err_t ota_http_register_handlers(httpd_handle_t server)
 {
     // GET /update -> HTML-Seite
@@ -117,6 +138,14 @@ esp_err_t ota_http_register_handlers(httpd_handle_t server)
         .uri       = "/update",
         .method    = HTTP_GET,
         .handler   = ota_get_handler,
+        .user_ctx  = NULL,
+    };
+
+    // GET /rebootfactory -> Reboot to factory partition
+    static const httpd_uri_t ota_reboot_factory_get_uri = {
+        .uri       = "/rebootfactory",
+        .method    = HTTP_GET,
+        .handler   = reboot_factory_handler,
         .user_ctx  = NULL,
     };
 
@@ -135,6 +164,14 @@ esp_err_t ota_http_register_handlers(httpd_handle_t server)
         ESP_LOGI(TAG_OTA, "Registered OTA HTTP GET handler at /update");
     } else {
         ESP_LOGE(TAG_OTA, "Failed to register OTA GET handler (%s)", esp_err_to_name(err));
+        return err;
+    }
+
+    err = httpd_register_uri_handler(server, &ota_reboot_factory_get_uri);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG_OTA, "Registered Reboot Factory HTTP GET handler at /rebootfactory");
+    } else {
+        ESP_LOGE(TAG_OTA, "Failed to register Reboot Factory GET handler (%s)", esp_err_to_name(err));
         return err;
     }
 

@@ -185,16 +185,16 @@
   },
   "active": "ef9af0e5a20904b2",
   "lastOpenFiles": [
-    "vigilant-engine-recovery/build/CMakeCache.txt.tmp1b8fc",
-    "vigilant-engine-recovery/build/CMakeFiles/TargetDirectories.txt.tmp4eb0b",
-    "vigilant-engine-recovery/build/esp-idf/main/cmake_install.cmake.tmp3dbbf",
-    "vigilant-engine-recovery/build/esp-idf/esp_http_server/cmake_install.cmake.tmpbf336",
-    "vigilant-engine-recovery/build/esp-idf/http_parser/cmake_install.cmake.tmp4db4a",
-    "vigilant-engine-recovery/build/esp-idf/esp_wifi/cmake_install.cmake.tmpc005e",
-    "vigilant-engine-recovery/build/esp-idf/esp_coex/cmake_install.cmake.tmp5612c",
-    "vigilant-engine-recovery/build/esp-idf/wpa_supplicant/cmake_install.cmake.tmpcc6ac",
-    "vigilant-engine-recovery/build/esp-idf/esp_netif/cmake_install.cmake.tmpe20b4",
-    "vigilant-engine-recovery/build/esp-idf/esp_netif_stack/cmake_install.cmake.tmp209ad",
-    "vigilant-engine-recovery/build/esp-idf/lwip/cmake_install.cmake.tmpc2e6b"
+    "build/CMakeFiles/vigilant-engine.elf.rsp",
+    "build/esp-idf/main/CMakeFiles/__idf_main.dir/vigilant.c.obj.d",
+    "build/esp-idf/esp_pm/cmake_install.cmake.tmpf83e2",
+    "build/compile_commands.json.tmp1dd18",
+    "build/CMakeFiles/rules.ninja.tmpf982c",
+    "build/build.ninja.tmp41be0",
+    "build/CMakeCache.txt.tmp37108",
+    "build/project_description.json.templ",
+    "build/project_description.json.templ.tmp",
+    "build/component_requires.temp.cmake",
+    "build/component_properties.temp.cmake"
   ]
 }

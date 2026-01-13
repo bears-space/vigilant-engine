@@ -20,4 +20,5 @@ idf_component_register(
     REQUIRES
         ${requires}
         app_update
+        esp_partition
 )
