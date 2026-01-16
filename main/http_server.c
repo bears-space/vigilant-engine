@@ -162,6 +162,12 @@ static void httpd_register_basic_auth(httpd_handle_t server)
 }
 #endif // CONFIG_EXAMPLE_BASIC_AUTH
 
+static void httpd_close_fn(httpd_handle_t hd, int sockfd)
+{
+    (void)hd;
+    ws_mgr_remove_client(sockfd);
+}
+
 static esp_err_t ws_handler(httpd_req_t *req)
 {
     if (req->method == HTTP_GET) {
@@ -187,13 +193,7 @@ static esp_err_t ws_handler(httpd_req_t *req)
     if (err == ESP_OK) {
         buf[frame.len] = 0;
 
-        // echo back (or handle your protocol here)
-        httpd_ws_frame_t out = {
-            .type = frame.type,
-            .payload = frame.payload,
-            .len = frame.len
-        };
-        err = httpd_ws_send_frame(req, &out);
+        // eigentes protokoll hier verarbeiten
     }
 
     free(buf);
@@ -438,6 +438,7 @@ static httpd_handle_t start_webserver_internal(void)
     config.server_port = 8001;
 #endif
     config.lru_purge_enable = true;
+    config.close_fn = httpd_close_fn;
 
     ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
     if (httpd_start(&server, &config) == ESP_OK) {
@@ -448,6 +449,7 @@ static httpd_handle_t start_webserver_internal(void)
         httpd_register_uri_handler(server, &any);
         httpd_register_uri_handler(server, &ws_uri);
         ws_mgr_init(server);   // WebSocket-Manager initialisieren
+
 
 #if CONFIG_EXAMPLE_ENABLE_SSE_HANDLER
         httpd_register_uri_handler(server, &sse);

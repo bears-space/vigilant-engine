@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "esp_log.h"
+
+static const char *TAG = "ws_mgr";
 
 #define MAX_WS_CLIENTS 8
 
@@ -37,6 +40,7 @@ static void ws_send_job(void *arg)
 
 esp_err_t ws_mgr_init(httpd_handle_t server)
 {
+    ESP_LOGI(TAG, "Initializing WebSocket Manager");
     s_httpd = server;
     if (!s_mux) s_mux = xSemaphoreCreateMutex();
     return (s_httpd && s_mux) ? ESP_OK : ESP_FAIL;
@@ -62,6 +66,8 @@ esp_err_t ws_mgr_add_client(int sockfd)
 
     s_clients[s_client_count++] = sockfd;
     xSemaphoreGive(s_mux);
+    ws_mgr_broadcast_text("A client joined the ws network.");
+    ESP_LOGI(TAG, "Added WS client, total=%d", (int)s_client_count);
     return ESP_OK;
 }
 
@@ -79,6 +85,8 @@ esp_err_t ws_mgr_remove_client(int sockfd)
     }
 
     xSemaphoreGive(s_mux);
+    ws_mgr_broadcast_text("A client left the ws network.");
+    ESP_LOGI(TAG, "Removed WS client, total=%d", (int)s_client_count);
     return ESP_OK;
 }
 
