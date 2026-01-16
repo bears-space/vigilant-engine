@@ -14,6 +14,7 @@ idf_component_register(
         "ota_http.c"
         "vigilant.c"
         "status_led.c"
+        "ws_mgr.c"
     INCLUDE_DIRS
         "."
     EMBED_FILES 

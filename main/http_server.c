@@ -18,6 +18,7 @@
 #include "protocol_examples_utils.h"
 
 #include "ota_http.h"
+#include "ws_mgr.h"
 
 #if !CONFIG_IDF_TARGET_LINUX
 #include <esp_wifi.h>
@@ -161,6 +162,44 @@ static void httpd_register_basic_auth(httpd_handle_t server)
 }
 #endif // CONFIG_EXAMPLE_BASIC_AUTH
 
+static esp_err_t ws_handler(httpd_req_t *req)
+{
+    if (req->method == HTTP_GET) {
+        // WebSocket handshake happens automatically when this handler is marked is_websocket=true
+        int fd = httpd_req_to_sockfd(req);
+        ws_mgr_add_client(fd);
+        return ESP_OK;
+    }
+
+    httpd_ws_frame_t frame = {
+        .type = HTTPD_WS_TYPE_TEXT,
+    };
+
+    // First call: get length
+    esp_err_t err = httpd_ws_recv_frame(req, &frame, 0);
+    if (err != ESP_OK) return err;
+
+    uint8_t *buf = malloc(frame.len + 1);
+    if (!buf) return ESP_ERR_NO_MEM;
+
+    frame.payload = buf;
+    err = httpd_ws_recv_frame(req, &frame, frame.len);
+    if (err == ESP_OK) {
+        buf[frame.len] = 0;
+
+        // echo back (or handle your protocol here)
+        httpd_ws_frame_t out = {
+            .type = frame.type,
+            .payload = frame.payload,
+            .len = frame.len
+        };
+        err = httpd_ws_send_frame(req, &out);
+    }
+
+    free(buf);
+    return err;
+}
+
 // ======================================================================
 //  HELLO / ECHO / ANY / CTRL Handler (direkt aus deinem main.c)
 // ======================================================================
@@ -292,6 +331,14 @@ static const httpd_uri_t any = {
     .user_ctx  = "Hello World!"
 };
 
+static const httpd_uri_t ws_uri = {
+    .uri        = "/ws",
+    .method     = HTTP_GET,      // ESP-IDF uses GET for the upgrade route; frames come through same handler
+    .handler    = ws_handler,
+    .user_ctx   = NULL,
+    .is_websocket = true
+};
+
 esp_err_t http_404_error_handler(httpd_req_t *req, httpd_err_code_t err)
 {
     if (strcmp("/hello", req->uri) == 0) {
@@ -399,6 +446,9 @@ static httpd_handle_t start_webserver_internal(void)
         httpd_register_uri_handler(server, &echo);
         httpd_register_uri_handler(server, &ctrl);
         httpd_register_uri_handler(server, &any);
+        httpd_register_uri_handler(server, &ws_uri);
+        ws_mgr_init(server);   // WebSocket-Manager initialisieren
+
 #if CONFIG_EXAMPLE_ENABLE_SSE_HANDLER
         httpd_register_uri_handler(server, &sse);
 #endif
@@ -436,6 +486,21 @@ esp_err_t http_server_stop(void)
         return httpd_stop(tmp);
     }
     return ESP_OK;
+}
+
+// Expose current server handle
+httpd_handle_t http_server_get_handle(void)
+{
+    return s_server;
+}
+
+// Register a URI on the running server
+esp_err_t http_server_register_uri(const httpd_uri_t *uri)
+{
+    if (!s_server) return ESP_ERR_INVALID_STATE; // server not running yet
+    if (!uri) return ESP_ERR_INVALID_ARG;
+
+    return httpd_register_uri_handler(s_server, uri);
 }
 
 #if !CONFIG_IDF_TARGET_LINUX
