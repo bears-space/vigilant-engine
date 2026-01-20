@@ -630,7 +630,7 @@ CONFIG_PARTITION_TABLE_MD5=y
 #
 # Vigilant Engine Configuration
 #
-# CONFIG_VE_ENABLE_STATUS_LED is not set
+CONFIG_VE_ENABLE_STATUS_LED=y
 CONFIG_VE_STATUS_LED_GPIO=8
 # end of Vigilant Engine Configuration
 
