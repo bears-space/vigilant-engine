@@ -18,6 +18,7 @@
 #include "protocol_examples_utils.h"
 
 #include "ota_http.h"
+#include "websocket.h"
 
 #if !CONFIG_IDF_TARGET_LINUX
 #include <esp_wifi.h>
@@ -161,50 +162,6 @@ static void httpd_register_basic_auth(httpd_handle_t server)
 }
 #endif // CONFIG_EXAMPLE_BASIC_AUTH
 
-<<<<<<< Updated upstream
-=======
-<<<<<<< HEAD
-static void httpd_close_fn(httpd_handle_t hd, int sockfd)
-{
-    (void)hd;
-    ws_mgr_remove_client(sockfd);
-}
-
-static esp_err_t ws_handler(httpd_req_t *req)
-{
-    if (req->method == HTTP_GET) {
-        // WebSocket handshake happens automatically when this handler is marked is_websocket=true
-        int fd = httpd_req_to_sockfd(req);
-        ws_mgr_add_client(fd);
-        return ESP_OK;
-    }
-
-    httpd_ws_frame_t frame = {
-        .type = HTTPD_WS_TYPE_TEXT,
-    };
-
-    // First call: get length
-    esp_err_t err = httpd_ws_recv_frame(req, &frame, 0);
-    if (err != ESP_OK) return err;
-
-    uint8_t *buf = malloc(frame.len + 1);
-    if (!buf) return ESP_ERR_NO_MEM;
-
-    frame.payload = buf;
-    err = httpd_ws_recv_frame(req, &frame, frame.len);
-    if (err == ESP_OK) {
-        buf[frame.len] = 0;
-
-        // eigentes protokoll hier verarbeiten
-    }
-
-    free(buf);
-    return err;
-}
-
-=======
->>>>>>> parent of ec188d9 (Add WebSocket support with ws_mgr module)
->>>>>>> Stashed changes
 // ======================================================================
 //  HELLO / ECHO / ANY / CTRL Handler (direkt aus deinem main.c)
 // ======================================================================
@@ -443,16 +400,7 @@ static httpd_handle_t start_webserver_internal(void)
         httpd_register_uri_handler(server, &echo);
         httpd_register_uri_handler(server, &ctrl);
         httpd_register_uri_handler(server, &any);
-<<<<<<< Updated upstream
-=======
-<<<<<<< HEAD
-        httpd_register_uri_handler(server, &ws_uri);
-        ws_mgr_init(server);   // WebSocket-Manager initialisieren
-
-
-=======
->>>>>>> parent of ec188d9 (Add WebSocket support with ws_mgr module)
->>>>>>> Stashed changes
+        websocket_register_handlers(server);
 #if CONFIG_EXAMPLE_ENABLE_SSE_HANDLER
         httpd_register_uri_handler(server, &sse);
 #endif

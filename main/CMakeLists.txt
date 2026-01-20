@@ -11,6 +11,7 @@ idf_component_register(
     SRCS
         "main.c"
         "http_server.c"
+        "websocket.c"
         "ota_http.c"
         "vigilant.c"
         "status_led.c"
