@@ -24,4 +24,5 @@ idf_component_register(
         app_update
         esp_partition
         led_strip
+        cjson
 )

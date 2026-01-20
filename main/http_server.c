@@ -33,139 +33,6 @@ static const char *TAG = "http_server";
 
 static httpd_handle_t s_server = NULL;   // unser globaler Server-Handle
 
-// ======================================================================
-//  BASIC AUTH (aus deinem main.c übernommen)
-// ======================================================================
-
-#if CONFIG_EXAMPLE_BASIC_AUTH
-
-typedef struct {
-    char    *username;
-    char    *password;
-} basic_auth_info_t;
-
-#define HTTPD_401      "401 UNAUTHORIZED"           /*!< HTTP Response 401 */
-
-static char *http_auth_basic(const char *username, const char *password)
-{
-    size_t out;
-    char *user_info = NULL;
-    char *digest = NULL;
-    size_t n = 0;
-    int rc = asprintf(&user_info, "%s:%s", username, password);
-    if (rc < 0) {
-        ESP_LOGE(TAG, "asprintf() returned: %d", rc);
-        return NULL;
-    }
-
-    if (!user_info) {
-        ESP_LOGE(TAG, "No enough memory for user information");
-        return NULL;
-    }
-    esp_crypto_base64_encode(NULL, 0, &n, (const unsigned char *)user_info, strlen(user_info));
-
-    digest = calloc(1, 6 + n + 1);
-    if (digest) {
-        strcpy(digest, "Basic ");
-        esp_crypto_base64_encode((unsigned char *)digest + 6, n, &out, (const unsigned char *)user_info, strlen(user_info));
-    }
-    free(user_info);
-    return digest;
-}
-
-/* An HTTP GET handler */
-static esp_err_t basic_auth_get_handler(httpd_req_t *req)
-{
-    char *buf = NULL;
-    size_t buf_len = 0;
-    basic_auth_info_t *basic_auth_info = req->user_ctx;
-
-    buf_len = httpd_req_get_hdr_value_len(req, "Authorization") + 1;
-    if (buf_len > 1) {
-        buf = calloc(1, buf_len);
-        if (!buf) {
-            ESP_LOGE(TAG, "No enough memory for basic authorization");
-            return ESP_ERR_NO_MEM;
-        }
-
-        if (httpd_req_get_hdr_value_str(req, "Authorization", buf, buf_len) == ESP_OK) {
-            ESP_LOGI(TAG, "Found header => Authorization: %s", buf);
-        } else {
-            ESP_LOGE(TAG, "No auth value received");
-        }
-
-        char *auth_credentials = http_auth_basic(basic_auth_info->username, basic_auth_info->password);
-        if (!auth_credentials) {
-            ESP_LOGE(TAG, "No enough memory for basic authorization credentials");
-            free(buf);
-            return ESP_ERR_NO_MEM;
-        }
-
-        if (strncmp(auth_credentials, buf, buf_len)) {
-            ESP_LOGE(TAG, "Not authenticated");
-            httpd_resp_set_status(req, HTTPD_401);
-            httpd_resp_set_type(req, "application/json");
-            httpd_resp_set_hdr(req, "Connection", "keep-alive");
-            httpd_resp_set_hdr(req, "WWW-Authenticate", "Basic realm=\"Hello\"");
-            httpd_resp_send(req, NULL, 0);
-        } else {
-            ESP_LOGI(TAG, "Authenticated!");
-            char *basic_auth_resp = NULL;
-            httpd_resp_set_status(req, HTTPD_200);
-            httpd_resp_set_type(req, "application/json");
-            httpd_resp_set_hdr(req, "Connection", "keep-alive");
-            int rc = asprintf(&basic_auth_resp, "{\"authenticated\": true,\"user\": \"%s\"}", basic_auth_info->username);
-            if (rc < 0) {
-                ESP_LOGE(TAG, "asprintf() returned: %d", rc);
-                free(auth_credentials);
-                return ESP_FAIL;
-            }
-            if (!basic_auth_resp) {
-                ESP_LOGE(TAG, "No enough memory for basic authorization response");
-                free(auth_credentials);
-                free(buf);
-                return ESP_ERR_NO_MEM;
-            }
-            httpd_resp_send(req, basic_auth_resp, strlen(basic_auth_resp));
-            free(basic_auth_resp);
-        }
-        free(auth_credentials);
-        free(buf);
-    } else {
-        ESP_LOGE(TAG, "No auth header received");
-        httpd_resp_set_status(req, HTTPD_401);
-        httpd_resp_set_type(req, "application/json");
-        httpd_resp_set_hdr(req, "Connection", "keep-alive");
-        httpd_resp_set_hdr(req, "WWW-Authenticate", "Basic realm=\"Hello\"");
-        httpd_resp_send(req, NULL, 0);
-    }
-
-    return ESP_OK;
-}
-
-static httpd_uri_t basic_auth = {
-    .uri       = "/basic_auth",
-    .method    = HTTP_GET,
-    .handler   = basic_auth_get_handler,
-};
-
-static void httpd_register_basic_auth(httpd_handle_t server)
-{
-    basic_auth_info_t *basic_auth_info = calloc(1, sizeof(basic_auth_info_t));
-    if (basic_auth_info) {
-        basic_auth_info->username = CONFIG_EXAMPLE_BASIC_AUTH_USERNAME;
-        basic_auth_info->password = CONFIG_EXAMPLE_BASIC_AUTH_PASSWORD;
-
-        basic_auth.user_ctx = basic_auth_info;
-        httpd_register_uri_handler(server, &basic_auth);
-    }
-}
-#endif // CONFIG_EXAMPLE_BASIC_AUTH
-
-// ======================================================================
-//  HELLO / ECHO / ANY / CTRL Handler (direkt aus deinem main.c)
-// ======================================================================
-
 static esp_err_t hello_get_handler(httpd_req_t *req)
 {
     char*  buf;
@@ -341,56 +208,10 @@ static const httpd_uri_t ctrl = {
     .user_ctx  = NULL
 };
 
-// ======================================================================
-//  SSE Handler (wie gehabt)
-// ======================================================================
-
-#if CONFIG_EXAMPLE_ENABLE_SSE_HANDLER
-static esp_err_t sse_handler(httpd_req_t *req)
-{
-    httpd_resp_set_type(req, "text/event-stream");
-    httpd_resp_set_hdr(req, "Cache-Control", "no-cache");
-    httpd_resp_set_hdr(req, "Connection", "keep-alive");
-
-    char sse_data[64];
-    while (1) {
-        struct timeval tv;
-        gettimeofday(&tv, NULL);
-        int64_t time_since_boot = tv.tv_sec;
-        esp_err_t err;
-        int len = snprintf(sse_data, sizeof(sse_data),
-                           "data: Time since boot: %" PRIi64 " seconds\n\n",
-                           time_since_boot);
-        if ((err = httpd_resp_send_chunk(req, sse_data, len)) != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to send sse data (returned %02X)", err);
-            break;
-        }
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-
-    httpd_resp_send_chunk(req, NULL, 0);
-    return ESP_OK;
-}
-
-static const httpd_uri_t sse = {
-    .uri       = "/sse",
-    .method    = HTTP_GET,
-    .handler   = sse_handler,
-    .user_ctx  = NULL
-};
-#endif // CONFIG_EXAMPLE_ENABLE_SSE_HANDLER
-
-// ======================================================================
-//  Webserver Start/Stop + Eventhandler
-// ======================================================================
-
 static httpd_handle_t start_webserver_internal(void)
 {
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-#if CONFIG_IDF_TARGET_LINUX
-    config.server_port = 8001;
-#endif
     config.lru_purge_enable = true;
 
     ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
@@ -401,12 +222,6 @@ static httpd_handle_t start_webserver_internal(void)
         httpd_register_uri_handler(server, &ctrl);
         httpd_register_uri_handler(server, &any);
         websocket_register_handlers(server);
-#if CONFIG_EXAMPLE_ENABLE_SSE_HANDLER
-        httpd_register_uri_handler(server, &sse);
-#endif
-#if CONFIG_EXAMPLE_BASIC_AUTH
-        httpd_register_basic_auth(server);
-#endif
 
         // OTA-Handler registrieren
         ota_http_register_handlers(server);
