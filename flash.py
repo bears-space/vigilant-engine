@@ -8,6 +8,9 @@ from pathlib import Path
 MAIN_BIN_REL = Path("build") / "vigilant-engine.bin"
 RECOVERY_BIN_REL = Path("vigilant-engine-recovery") / "build" / "vigilant-engine-recovery.bin"
 
+print(MAIN_BIN_REL)
+print(RECOVERY_BIN_REL)
+
 PART_MAIN = "ota_0"
 PART_RECOVERY = "factory"
 

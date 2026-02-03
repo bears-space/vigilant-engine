@@ -95,8 +95,8 @@ static esp_err_t wifi_init_once(void)
 }
 
 static esp_err_t wifi_apply_mode(NW_MODE mode,
-                                const wifi_config_t *sta,
-                                const wifi_config_t *ap)
+                                wifi_config_t *sta,
+                                wifi_config_t *ap)
 {
     // Stop kann beim ersten Mal "not started" sein -> nicht dramatisch
     esp_err_t err = esp_wifi_stop();
