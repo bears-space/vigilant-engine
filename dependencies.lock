@@ -14,14 +14,9 @@ dependencies:
       type: idf
     version: 5.5.2
   protocol_examples_common:
-    dependencies: []
-    source:
-      path: /home/joelh/.espressif/v5.5.2/esp-idf/examples/common_components/protocol_examples_common
-      type: local
-    version: '*'
+    path: "../../common_components/protocol_examples_common"
 direct_dependencies:
 - espressif/led_strip
 - protocol_examples_common
 manifest_hash: 175b56ed603730a9f608d26f773eaefaf5c6aaf50dcbff3d3d4e6ec5234752eb
-target: esp32c6
 version: 2.0.0
