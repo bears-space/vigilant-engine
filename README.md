@@ -1,6 +1,6 @@
 # Vigilant Engine
 
-Vigilant Engine is the framework on which all ESP-based nodes of the **Starstreak** project are built.  
+Vigilant Engine is the framework on which all ESP-based nodes of the **Aerobear** project are built.  
 It provides the fundamental building blocks for connected, remotely maintainable devices, including
 reliable OTA updates, flexible network modes, and peripheral support.
 
@@ -33,7 +33,7 @@ Vigilant Engine includes drivers / integration for:
 - **TCAN4550-Q1** – SPI CAN controller
 - **TCAN332** – CAN transceiver
 
-These peripherals are wrapped in a common abstraction layer so they can be reused across all Starstreak nodes.
+These peripherals are wrapped in a common abstraction layer so they can be reused across all Aerobear nodes.
 
 ## Partition setup and the Flasher
 

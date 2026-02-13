@@ -21,7 +21,7 @@ static const char *TAG = "ve_recovery";
 
 // ---- AP Config ----
 #define RECOVERY_AP_SSID      "VE-Recovery"
-#define RECOVERY_AP_PASS      "starstreak"   // >= 8 chars for WPA2; set "" for open AP
+#define RECOVERY_AP_PASS      "aerobear"   // >= 8 chars for WPA2; set "" for open AP
 #define RECOVERY_AP_CHANNEL   6
 #define RECOVERY_MAX_CONN     2
 
