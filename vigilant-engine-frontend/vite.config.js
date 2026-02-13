@@ -16,9 +16,9 @@ export default defineConfig(({ mode }) => {
 
   // ✅ Adjust these relative paths to your repo layout
   const outDir = isVigilant
-    ? path.resolve(__dirname, "../components/vigilant_engine/static")
+    ? path.resolve(__dirname, "../build/static/vigilant")
     : isRecovery
-      ? path.resolve(__dirname, "../vigilant-engine-recovery/main/static")
+      ? path.resolve(__dirname, "../build/static/recovery")
       : path.resolve(__dirname, "dist");
 
   const input = isVigilant
