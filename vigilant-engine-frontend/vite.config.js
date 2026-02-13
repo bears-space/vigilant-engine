@@ -7,9 +7,16 @@ export default defineConfig(({ mode }) => {
   const isVigilant = mode === "vigilant";
   const isRecovery = mode === "recovery";
 
+  // Decide which HTML entry to open in dev server
+  const devEntry = isVigilant
+    ? "/vigilant.html"
+    : isRecovery
+      ? "/index.html"
+      : "/";
+
   // ✅ Adjust these relative paths to your repo layout
   const outDir = isVigilant
-    ? path.resolve(__dirname, "../main/static")
+    ? path.resolve(__dirname, "../components/vigilant_engine/static")
     : isRecovery
       ? path.resolve(__dirname, "../vigilant-engine-recovery/main/static")
       : path.resolve(__dirname, "dist");
@@ -24,7 +31,12 @@ export default defineConfig(({ mode }) => {
         };
 
   return {
+    // MPA avoids history-fallback forcing /index.html and lets us open either page directly
+    appType: "mpa",
     plugins: [vue(), viteSingleFile()],
+    server: {
+      open: devEntry,
+    },
     build: {
       outDir,
       emptyOutDir: true,
