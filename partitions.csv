@@ -4,3 +4,5 @@ otadata,   data, ota,     0xD000,   0x2000,
 phy_init,  data, phy,     0xF000,   0x1000,
 factory,   app,  factory, 0x10000,  0x100000,
 ota_0,     app,  ota_0,   0x110000, 0x2F0000,
+
+# esptool.py write_flash 0x110000 build/vigilant-engine.bin 

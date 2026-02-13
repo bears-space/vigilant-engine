@@ -11,6 +11,7 @@
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
 #include "esp_system.h"
+#include "esp_mac.h"
 #include "status_led.h"
 
 #include "http_server.h"
@@ -22,17 +23,17 @@ static esp_netif_t *s_netif_ap  = NULL;
 
 static wifi_config_t sta_cfg = {
     .sta = {
-        .ssid = "starstreak",
-        .password = "starstreak",
+        .ssid = "aerobear",
+        .password = "aerobear",
         .threshold.authmode = WIFI_AUTH_WPA2_PSK,
     }
 };
 
 static wifi_config_t ap_cfg = {
     .ap = {
-        .ssid = "starstreak-SETUP",
+        .ssid = "aerobear-SETUP",      //made unique in later
         .ssid_len = 0,
-        .password = "starstreak",        // leer => open AP, dann aber auch authmode anpassen
+        .password = "aerobear",        // leer => open AP, dann aber auch authmode anpassen
         .channel = 1,
         .max_connection = 4,
         .authmode = WIFI_AUTH_WPA2_PSK 
@@ -132,6 +133,7 @@ static esp_err_t wifi_apply_mode(NW_MODE mode,
 
 esp_err_t vigilant_init(VigilantConfig VgConfig)
 {
+    uint8_t mac[6];
     status_led_config_t led_cfg = {
         .gpio = CONFIG_VE_STATUS_LED_GPIO,
         .resolution_hz = 10 * 1000 * 1000,
@@ -150,6 +152,12 @@ esp_err_t vigilant_init(VigilantConfig VgConfig)
     } else {
         ESP_ERROR_CHECK(ret);
     }
+
+    ESP_ERROR_CHECK(esp_read_mac(mac, ESP_MAC_WIFI_STA));
+    snprintf((char*)ap_cfg.ap.ssid, sizeof(ap_cfg.ap.ssid), 
+             "aerobear-%02X%02X", mac[4], mac[5]);
+    ESP_LOGI(TAG, "Device MAC: %02X:%02X:%02X:%02X:%02X:%02X", 
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
     ESP_LOGI(TAG, "Init netif + event loop");
     ESP_ERROR_CHECK(esp_netif_init());

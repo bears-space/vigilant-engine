@@ -51,7 +51,8 @@ def idf_build(repo_root: Path, project_dir: Path | None = None):
     if project_dir is not None:
         # works on Windows + Linux, avoids relying on file associations
         cmd += ["-C", str(project_dir)]
-    cmd += ["build"]
+    #reconfigure builds sdkconfig
+    cmd += ["reconfigure", "build"]
     run(cmd, cwd=repo_root)
 
 
