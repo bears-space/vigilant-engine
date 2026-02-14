@@ -19,6 +19,7 @@
 #include "protocol_examples_utils.h"
 
 #include "ota_http.h"
+#include "vigilant.h"
 #include "websocket.h"
 
 #if !CONFIG_IDF_TARGET_LINUX
@@ -161,6 +162,43 @@ static const httpd_uri_t any = {
     .user_ctx  = "Hello World!"
 };
 
+static esp_err_t info_get_handler(httpd_req_t *req)
+{
+    VigilantInfo info = {0};
+    esp_err_t err = vigilant_get_info(&info);
+    if (err != ESP_OK) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to fetch info");
+        return err;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    char payload[256];
+    int written = snprintf(payload, sizeof(payload),
+        "{\"name\":\"%s\",\"network_mode\":%d,\"mac\":\"%s\",\"ap_ssid\":\"%s\",\"sta_ssid\":\"%s\",\"ip_sta\":\"%s\",\"ip_ap\":\"%s\"}",
+        info.unique_component_name,
+        (int)info.network_mode,
+        info.mac,
+        info.ap_ssid,
+        info.sta_ssid,
+        info.ip_sta,
+        info.ip_ap);
+
+    if (written < 0 || written >= (int)sizeof(payload)) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Info too large");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_send(req, payload, written);
+    return ESP_OK;
+}
+
+static const httpd_uri_t info_uri = {
+    .uri       = "/info",
+    .method    = HTTP_GET,
+    .handler   = info_get_handler,
+    .user_ctx  = NULL,
+};
+
 esp_err_t http_404_error_handler(httpd_req_t *req, httpd_err_code_t err)
 {
     if (strcmp("/hello", req->uri) == 0) {
@@ -223,6 +261,7 @@ static httpd_handle_t start_webserver_internal(void)
         httpd_register_uri_handler(server, &echo);
         httpd_register_uri_handler(server, &ctrl);
         httpd_register_uri_handler(server, &any);
+        httpd_register_uri_handler(server, &info_uri);
         websocket_register_handlers(server);
 
         // OTA-Handler registrieren

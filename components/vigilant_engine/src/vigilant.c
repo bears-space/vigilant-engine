@@ -12,6 +12,7 @@
 #include "esp_partition.h"
 #include "esp_system.h"
 #include "esp_mac.h"
+#include "lwip/inet.h"
 #include "status_led.h"
 
 #include "http_server.h"
@@ -21,6 +22,7 @@ static const char *TAG = "vigilant";
 
 static esp_netif_t *s_netif_sta = NULL;
 static esp_netif_t *s_netif_ap  = NULL;
+static VigilantConfig s_cfg = {0};
 
 static wifi_config_t sta_cfg = {
     .sta = {
@@ -186,5 +188,39 @@ esp_err_t vigilant_init(VigilantConfig VgConfig)
 
     ESP_LOGI(TAG, "Vigilant initialized successfully!");
     ESP_LOGI(TAG, "This node unique name is: %s", VgConfig.unique_component_name);
+    s_cfg = VgConfig;
+    return ESP_OK;
+}
+
+esp_err_t vigilant_get_info(VigilantInfo *info)
+{
+    if (!info) return ESP_ERR_INVALID_ARG;
+
+    memset(info, 0, sizeof(*info));
+    memcpy(info->unique_component_name, s_cfg.unique_component_name, sizeof(info->unique_component_name));
+    info->network_mode = s_cfg.network_mode;
+
+    uint8_t mac[6] = {0};
+    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    snprintf(info->mac, sizeof(info->mac), "%02X:%02X:%02X:%02X:%02X:%02X",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+    snprintf(info->ap_ssid, sizeof(info->ap_ssid), "%s", (const char*)ap_cfg.ap.ssid);
+    snprintf(info->sta_ssid, sizeof(info->sta_ssid), "%s", (const char*)sta_cfg.sta.ssid);
+
+    esp_netif_ip_info_t ip_sta = {0};
+    if (s_netif_sta && esp_netif_get_ip_info(s_netif_sta, &ip_sta) == ESP_OK) {
+        inet_ntoa_r(ip_sta.ip, info->ip_sta, sizeof(info->ip_sta));
+    } else {
+        strcpy(info->ip_sta, "0.0.0.0");
+    }
+
+    esp_netif_ip_info_t ip_ap = {0};
+    if (s_netif_ap && esp_netif_get_ip_info(s_netif_ap, &ip_ap) == ESP_OK) {
+        inet_ntoa_r(ip_ap.ip, info->ip_ap, sizeof(info->ip_ap));
+    } else {
+        strcpy(info->ip_ap, "0.0.0.0");
+    }
+
     return ESP_OK;
 }
