@@ -184,7 +184,7 @@ function scheduleReconnect() {
   if (reconnectHandle.value !== null) return;
   socket.value = null;
   reconnectAttempts.value += 1;
-  const delay = Math.min(600 + reconnectAttempts.value * 600, 2500);
+  const delay = Math.min(1000 + reconnectAttempts.value * 1000, 2500);
   reconnectHandle.value = window.setTimeout(() => {
     reconnectHandle.value = null;
     connectLogStream();
@@ -226,7 +226,7 @@ function connectLogStream() {
     if (heartbeatTimer.value === null) {
       heartbeatTimer.value = window.setInterval(() => {
         const diff = performance.now() - lastHeartbeat.value;
-        const alive = diff <= 600;
+        const alive = diff <= 1000;
         connectionOk.value = alive;
         if (!alive && ws.readyState === WebSocket.OPEN) {
           try { ws.close(); } catch (_) {}
