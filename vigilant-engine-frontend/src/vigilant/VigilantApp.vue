@@ -3,7 +3,12 @@
     <header class="topbar">
       <div class="title-block">
         <h1>⚡ Vigilant Engine</h1>
-        <div class="device-name">{{ deviceName }}</div>
+        <div class="device-row">
+          <div class="device-name">{{ deviceName }}</div>
+          <div class="ws-chip" :class="connectionOk ? 'ws-up' : 'ws-down'">
+            <span class="ws-dot"></span>{{ connectionOk ? "WS Connected" : "WS Disconnected" }}
+          </div>
+        </div>
         <div class="status">{{ statusText }}</div>
       </div>
       <div class="actions">
@@ -82,6 +87,11 @@ const lines = ref<string[]>([]);
 const consoleEl = ref<HTMLElement | null>(null);
 const socket = ref<WebSocket | null>(null);
 const reconnectHandle = ref<number | null>(null);
+const reconnectAttempts = ref(0);
+const pingTimer = ref<number | null>(null);
+const heartbeatTimer = ref<number | null>(null);
+const lastHeartbeat = ref<number>(0);
+const connectionOk = ref(false);
 
 const consoleHtml = computed(() =>
   lines.value
@@ -171,22 +181,64 @@ function handleLogPayload(raw: unknown) {
 }
 
 function scheduleReconnect() {
-  socket.value = null;
   if (reconnectHandle.value !== null) return;
+  socket.value = null;
+  reconnectAttempts.value += 1;
+  const delay = Math.min(600 + reconnectAttempts.value * 600, 2500);
   reconnectHandle.value = window.setTimeout(() => {
     reconnectHandle.value = null;
     connectLogStream();
-  }, 1500);
+  }, delay);
 }
 
 function connectLogStream() {
+  if (reconnectHandle.value !== null) {
+    clearTimeout(reconnectHandle.value);
+    reconnectHandle.value = null;
+  }
+
+  if (socket.value) {
+    try { socket.value.close(); } catch (_) {}
+    socket.value = null;
+  }
+
+  if (pingTimer.value !== null) {
+    clearInterval(pingTimer.value);
+    pingTimer.value = null;
+  }
+
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
   const ws = new WebSocket(`${protocol}://${window.location.host}/ws`);
 
   socket.value = ws;
 
+  ws.addEventListener("open", () => {
+    reconnectAttempts.value = 0;
+    lastHeartbeat.value = performance.now();
+    connectionOk.value = true;
+
+    pingTimer.value = window.setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        try { ws.send('{\"type\":\"ping\"}'); } catch (_) {}
+      }
+    }, 200);
+
+    if (heartbeatTimer.value === null) {
+      heartbeatTimer.value = window.setInterval(() => {
+        const diff = performance.now() - lastHeartbeat.value;
+        const alive = diff <= 600;
+        connectionOk.value = alive;
+        if (!alive && ws.readyState === WebSocket.OPEN) {
+          try { ws.close(); } catch (_) {}
+        }
+      }, 100);
+    }
+  });
+
   ws.addEventListener("message", (event) => {
     if (typeof event.data !== "string") return;
+    lastHeartbeat.value = performance.now();
+    connectionOk.value = true;
     try {
       handleLogPayload(JSON.parse(event.data));
     } catch {
@@ -195,7 +247,10 @@ function connectLogStream() {
   });
 
   ws.addEventListener("close", scheduleReconnect);
-  ws.addEventListener("error", () => ws.close());
+  ws.addEventListener("error", () => {
+    scheduleReconnect();
+    try { ws.close(); } catch (_) {}
+  });
 }
 
 onMounted(() => {
@@ -206,6 +261,14 @@ onBeforeUnmount(() => {
   if (reconnectHandle.value !== null) {
     clearTimeout(reconnectHandle.value);
     reconnectHandle.value = null;
+  }
+  if (pingTimer.value !== null) {
+    clearInterval(pingTimer.value);
+    pingTimer.value = null;
+  }
+  if (heartbeatTimer.value !== null) {
+    clearInterval(heartbeatTimer.value);
+    heartbeatTimer.value = null;
   }
   if (socket.value) {
     socket.value.close();
@@ -272,7 +335,6 @@ h1 {
 .device-name {
   font-size: 0.8125rem;
   color: #60a5fa;
-  margin-bottom: 20px;
   font-weight: 600;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -280,6 +342,44 @@ h1 {
   border-left: 3px solid #3b82f6;
   padding-left: 12px;
 }
+
+.device-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.ws-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  border: 1px solid #1f2937;
+}
+
+.ws-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.ws-up {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+}
+.ws-up .ws-dot { background: #34d399; }
+
+.ws-down {
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+}
+.ws-down .ws-dot { background: #f87171; }
 
 .status {
   font-size: 0.9rem;
