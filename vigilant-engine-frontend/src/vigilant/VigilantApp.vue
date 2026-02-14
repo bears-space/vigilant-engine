@@ -77,8 +77,8 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 
 const MAX_LOG_LINES = 200;
 
-const deviceName = "Vigilant ESP Test";
-const statusText = "System Operational";
+const deviceName = ref("Vigilant ESP Test");
+const statusText = ref("System Operational");
 
 const overlayActive = ref(false);
 const proceeding = ref(false);
@@ -141,6 +141,20 @@ function normalizeLogLines(rawLines: string[]): string[] {
 
 function splitAndNormalize(text: string) {
   return normalizeLogLines(text.split(/\r?\n/));
+}
+
+async function loadDeviceInfo() {
+  const INFO_URL = "http://192.168.13.234/info";
+  try {
+    const res = await fetch(INFO_URL, { cache: "no-cache" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (typeof data?.name === "string" && data.name.trim()) {
+      deviceName.value = data.name.trim();
+    }
+  } catch (err) {
+    console.warn("Failed to load device info", err);
+  }
 }
 
 const scrollConsoleToBottom = () => {
@@ -255,6 +269,7 @@ function connectLogStream() {
 
 onMounted(() => {
   connectLogStream();
+  loadDeviceInfo();
 });
 
 onBeforeUnmount(() => {
