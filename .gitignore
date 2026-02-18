@@ -12,3 +12,4 @@ partitions.csv
 
 vigilant-engine-recovery/main/static/*
 components/vigilant_engine/static/*
+vigilant-engine-recovery/partition-table.bin
