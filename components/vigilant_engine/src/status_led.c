@@ -19,6 +19,20 @@ static struct {
     bool running;
 } s_blink = {0};
 
+esp_err_t status_led_set_state(status_state_t state) {
+    switch (state) {
+        case STATUS_STATE_INFO:
+            return status_led_blink_start(0, 255, 0, 100, 50); // Green
+        case STATUS_STATE_WARNING:
+            return status_led_blink_start(255, 165, 0, 500, 500); // Orange
+        case STATUS_STATE_ERROR:
+            return status_led_blink_start(255, 0, 0, 100, 100); // Red
+        case STATUS_STATE_OFF:
+        default:
+            return status_led_blink_stop();
+    }
+}
+
 static void blink_task(void *arg)
 {
     (void)arg;

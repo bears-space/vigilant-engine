@@ -68,6 +68,7 @@ static void wifi_evt(void* arg, esp_event_base_t base, int32_t id, void* data)
     if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
         wifi_event_sta_disconnected_t *e = (wifi_event_sta_disconnected_t*)data;
         ESP_LOGW("wifi", "STA disconnected, reason=%d", e->reason);
+        status_led_set_state(STATUS_STATE_WARNING);
         // optional: reconnect
         esp_wifi_connect();
     }
