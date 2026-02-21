@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-#define EXAMPLE_HTTP_QUERY_KEY_MAX_LEN  (64)
+#define HTTP_QUERY_KEY_MAX_LEN  (64)
 
 // Startet den HTTP-Server (idempotent, wird nur einmal gestartet)
 esp_err_t http_server_start(void);
