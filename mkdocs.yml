@@ -1,0 +1,23 @@
+site_name: Vigilant Engine Documentation
+site_description: Documentation for the Vigilant Engine ESP-IDF framework
+site_dir: site
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Build & Flash: build-flash.md
+  - Project Layout: project-layout.md
+  - Firmware Features: features.md
+  - Recovery & OTA: recovery-ota.md
+  - Peripherals: peripherals.md
+  - Troubleshooting: troubleshooting.md
+  - Reference:
+      - Partition Table: partitions.md
+      - Flash Helper: flash-helper.md
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+      
+theme: readthedocs

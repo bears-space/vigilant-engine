@@ -9,6 +9,7 @@ sdkconfig.old
 dependencies.lock
 /node_modules
 partitions.csv
+.venv
 
 vigilant-engine-recovery/main/static/*
 components/vigilant_engine/static/*
