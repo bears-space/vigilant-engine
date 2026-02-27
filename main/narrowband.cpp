@@ -35,6 +35,7 @@ int recv_narrowband(char* buf, int len) {
 
     // TODO: put received cmd into cmd queue
     //return s_radio->recv(buf, len);
+    return 0;
 }
 
 void destroy_narrowband() {
