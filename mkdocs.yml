@@ -8,6 +8,7 @@ nav:
   - Build & Flash: build-flash.md
   - Project Layout: project-layout.md
   - Firmware Features: features.md
+  - Configuration: config.md
   - Recovery & OTA: recovery-ota.md
   - Peripherals: peripherals.md
   - Troubleshooting: troubleshooting.md
