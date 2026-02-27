@@ -48,5 +48,20 @@ menu "Vigilant Engine Configuration"
         default 8
         help
             The GPIO pin number for the status LED.
+    config VE_STA_SSID
+        string "WiFi STA SSID"
+        default "aerobear"
+        help
+            The SSID of the WiFi network the Vigilant Engine should connect to.
+    config VE_STA_PASSWORD
+        string "WiFi STA Password"
+        default "aerobear"
+        help
+            The password for the WiFi network the Vigilant Engine should connect to.
+    config VE_AP_PASSWORD
+        string "WiFi AP Password"
+        default "aerobear"
+        help
+            The password for the WiFi Access Point (AP) mode of the Vigilant Engine.
         
 endmenu

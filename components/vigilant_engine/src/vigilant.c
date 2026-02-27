@@ -14,6 +14,7 @@
 #include "esp_mac.h"
 #include "lwip/inet.h"
 #include "status_led.h"
+#include "sdkconfig.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/timers.h"
@@ -30,8 +31,8 @@ static TimerHandle_t sta_reconnect_timer;
 
 static wifi_config_t sta_cfg = {
     .sta = {
-        .ssid = "aerobear",
-        .password = "aerobear",
+        .ssid = CONFIG_VE_STA_SSID,
+        .password = CONFIG_VE_STA_PASSWORD,
         .channel = 1,
         .threshold.authmode = WIFI_AUTH_WPA2_PSK,
     }
@@ -41,7 +42,7 @@ static wifi_config_t ap_cfg = {
     .ap = {
         .ssid = "aerobear-SETUP",      //made unique in later
         .ssid_len = 0,
-        .password = "aerobear",        // leer => open AP, dann aber auch authmode anpassen
+        .password = CONFIG_VE_AP_PASSWORD,        // leer => open AP, dann aber auch authmode anpassen
         .channel = 1,
         .max_connection = 4,
         .authmode = WIFI_AUTH_WPA2_PSK 
