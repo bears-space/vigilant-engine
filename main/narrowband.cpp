@@ -7,6 +7,11 @@
 #include "esp_log.h"
 #include <cstring>
 #include <sys/types.h>
+#include <atomic>  // for ISR flag
+
+// flag set in ISR when packet arrives
+// atomic operation to avoid data race between interrupt and main thread
+static std::atomic<bool> s_received_packet{false};
 
 // radio comms interval
 constexpr int RADIO_INTERVAL_MS = 500;
@@ -31,14 +36,13 @@ private:
     static NarrowbandRadio* instance;
     
     NarrowbandRadio();
+    void handleReceive();
+    void enqueueCommand(const std::vector<uint8_t>& cmd);
     
 public:
     ~NarrowbandRadio();
     static NarrowbandRadio* getInstance();
-    void enqueueCommand(const std::vector<uint8_t>& cmd);
     std::vector<uint8_t> dequeueCommand();
-    void parseCommand();
-    void handleReceive();
     void runThread();
 };
 
@@ -62,24 +66,27 @@ NarrowbandRadio::NarrowbandRadio()
     // freq 434 Mhz, bitrate 2.4 kHz, frequency deviation 2.4 kHz, receiver bandwidth DSB 11.7 kHz, power 22 dBm, preamble length 32 bit, TCXO voltage 0 V, useRegulatorLDO false
     int state = radio->beginFSK(434, 2.4, 2.4, 11.7, 22, 32, 0, false);
     if (state != RADIOLIB_ERR_NONE) {
-        ESP_LOGI(TAG, "failed, code %d\n", state);
-        return;
+        ESP_LOGE(TAG, "beginFSK failed, code %d (fatal)\n", state);
+        abort(); // fatal error, cannot continue without radio
     }
-
-    ESP_LOGI(TAG, "success!\n");
 
     // RXEN pin: 16
     // TXEN pin controlled via dio2
     radio->setRfSwitchPins(RXEN_PIN, RADIOLIB_NC);
     radio->setDio2AsRfSwitch(true);
 
+    ESP_LOGI(TAG, "success!\n");
+
     // for more details, see LLCC68 datasheet, this is the highest power setting, with 22 dBm set in beginFSK
     state = radio->setPaConfig(0x04, 0x00, 0x07, 0x01);
     if (state != RADIOLIB_ERR_NONE) {
-        ESP_LOGI(TAG, "failed pa config, code %d\n", state);
-        return;
+        ESP_LOGE(TAG, "PA config failed, code %d (fatal)\n", state);
+        abort();
     }
     ESP_LOGI(TAG, "[LLCC68] PA config configured!\n");
+
+    // configure callback for received packet; must be a free/IRAM-safe function
+    radio->setPacketReceivedAction(narrowband_receive_isr);
 }
 
 NarrowbandRadio::~NarrowbandRadio() {
@@ -115,14 +122,18 @@ std::vector<uint8_t> NarrowbandRadio::dequeueCommand() {
     return {};
 }
 
-void NarrowbandRadio::parseCommand() {
-    // TODO: implement command parsing
+// ISR callback stored in IRAM; just sets the atomic flag
+extern "C" void IRAM_ATTR narrowband_receive_isr(void) {
+    s_received_packet.store(true, std::memory_order_relaxed);
 }
 
 void NarrowbandRadio::handleReceive() {
-    if (hal == nullptr || radio == nullptr) {
+
+    // check and clear ISR flag
+    if (!s_received_packet.load(std::memory_order_relaxed)) {
         return;
     }
+    s_received_packet.store(false, std::memory_order_relaxed);
 
     size_t len = radio->getPacketLength();
     std::vector<uint8_t> buf(len);
@@ -130,7 +141,7 @@ void NarrowbandRadio::handleReceive() {
 
     if (state == RADIOLIB_ERR_NONE) {
         ESP_LOGI(TAG, "Received packet: %s\n", buf.data());
-        // TODO: parseCommand(), put received packet into cmd queue
+        // maybe parse command here, currently we just enqueue the raw packet data for processing in the main thread
         enqueueCommand(buf);
     } else if (state == RADIOLIB_ERR_CRC_MISMATCH) {
         ESP_LOGI(TAG, "Received packet with CRC mismatch!\n");
@@ -139,6 +150,8 @@ void NarrowbandRadio::handleReceive() {
     }
 }
 
+// TODO: add a way to break out of this loop and clean up resources, currently it will run indefinitely
+// maybe consider a yield?
 void NarrowbandRadio::runThread() {
     if (hal == nullptr || radio == nullptr) {
         ESP_LOGI(TAG, "HAL or radio not initialized!\n");
@@ -151,6 +164,7 @@ void NarrowbandRadio::runThread() {
     while (true) {
         ESP_LOGI(TAG, "[LLCC68] Sending packet...");
 
+        // TODO: replace with sensor data from sensor queue
         state = radio->transmit("Hello world!");
         if (state == RADIOLIB_ERR_NONE) {
             // the packet was successfully transmitted
@@ -172,6 +186,7 @@ void NarrowbandRadio::runThread() {
         hal->delay(RADIO_INTERVAL_MS);
         
         // if no packet was received, we just start sending again
+        handleReceive();
     }
 }
 
@@ -180,11 +195,6 @@ void NarrowbandRadio::runThread() {
 extern "C" {
     void init_narrowband() {
         NarrowbandRadio::getInstance();
-    }
-
-    void enqueue_command(const uint8_t* data, size_t len) {
-        std::vector<uint8_t> cmd(data, data + len);
-        NarrowbandRadio::getInstance()->enqueueCommand(cmd);
     }
 
     // Dequeue into caller-provided buffer; returns number of bytes written,
@@ -204,10 +214,6 @@ extern "C" {
         }
         std::memcpy(buf, v.data(), needed);
         return static_cast<ssize_t>(needed);
-    }
-
-    void IRAM_ATTR handle_receive(void) {
-        NarrowbandRadio::getInstance()->handleReceive();
     }
 
     void narrowband_thread() {
