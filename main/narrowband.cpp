@@ -28,6 +28,7 @@ namespace {
         static constexpr int RXEN_PIN = 16;
 
         static constexpr uint16_t rxtx_interval_ms = 500;
+        static constexpr uint32_t tx_timeout_ms = 500;
 
         EspHal hal;
         Module module;
@@ -40,6 +41,7 @@ namespace {
         const UBaseType_t rxtxTaskNotifyIndex = 1; // index of the notification value used for receive ISR flag
         
         void handleReceive();
+        static void IRAM_ATTR transmit_isr(void);
         static void IRAM_ATTR receive_isr(void);
         static void rxtx_task_trampoline(void* param);
         void rxtx_task();
@@ -88,12 +90,22 @@ namespace {
         }
         ESP_LOGI(TAG, "[LLCC68] PA config configured!\n");
 
-        // configure callback for received packet; must be a free/IRAM-safe function
+        // configure callback for received/transmitted packet; must be a free/IRAM-safe function
         radio.setPacketReceivedAction(receive_isr);
+        radio.setPacketTransmittedAction(transmit_isr);
 
         // create the rx/tx task
         // xTaskCreate(rxtx_task_trampoline, "narrowband_rxtx", 4096, this, 1, NULL);
 
+    }
+
+    void IRAM_ATTR NarrowbandRadio::transmit_isr(void) {
+        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+        configASSERT( nb_radio.rxtxTaskHandle != NULL );
+
+        vTaskNotifyGiveIndexedFromISR( nb_radio.rxtxTaskHandle, nb_radio.rxtxTaskNotifyIndex, &xHigherPriorityTaskWoken );
+        portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
     }
 
     // ISR callback stored in IRAM; just sets the atomic flag
@@ -135,30 +147,40 @@ namespace {
     void NarrowbandRadio::rxtx_task() {
         ESP_LOGI(TAG, "[LLCC68] Started rxtx task!\n");
         rxtxTaskHandle = xTaskGetCurrentTaskHandle();
+        uint32_t ulNotificationValue;
 
         int state = RADIOLIB_ERR_NONE;
         while (true) {
             ESP_LOGI(TAG, "[LLCC68] Sending packet...");
 
             // TODO: replace with sensor data from sensor queue
-            state = radio.transmit("Hello world!");
-            if (state == RADIOLIB_ERR_NONE) {
-                // the packet was successfully transmitted
-                ESP_LOGI(TAG, "success!\n");
-            } else {
-                ESP_LOGI(TAG, "failed, code %d\n", state);
+            state = radio.startTransmit("Hello world!");
+
+            if (state != RADIOLIB_ERR_NONE) {
+                ESP_LOGI(TAG, "\nstartTransmit failed, code %d\n", state);
             }
+
+            ulNotificationValue = ulTaskNotifyTakeIndexed(rxtxTaskNotifyIndex, pdTRUE, pdMS_TO_TICKS(tx_timeout_ms));
+            if (ulNotificationValue == 1) {
+                state = radio.finishTransmit();
+                if (state != RADIOLIB_ERR_NONE) {
+                    ESP_LOGI(TAG, "\nTransmission failed during finishTransmit, code %d\n", state);
+                } else {
+                    ESP_LOGI(TAG, " done!\n");
+                }
+            } else {
+                ESP_LOGI(TAG, "\nTransmission timeout, no callback received within %d ms\n", tx_timeout_ms);
+            }
+
 
             state = radio.startReceive();
             if (state == RADIOLIB_ERR_NONE) {
-                // the module is now in receive mode, waiting for a packet
                 ESP_LOGI(TAG, "Waiting for a packet...\n");
             } else {
                 ESP_LOGI(TAG, "failed to start receiver, code %d\n", state);
             }
 
             // receive for 0.5 s (the amount specified by rxtx_interval_ms)
-            uint32_t ulNotificationValue;
             TickType_t start = xTaskGetTickCount();
             uint16_t elapsed_time_ms = 0;
             while (elapsed_time_ms < rxtx_interval_ms) {
@@ -170,6 +192,12 @@ namespace {
                     // timeout, no packet received within the interval
                     break;
                 }
+            }
+            
+            // TODO: check if this can be left out
+            state = radio.finishReceive();
+            if (state != RADIOLIB_ERR_NONE) {
+                ESP_LOGI(TAG, "failed to finish receive, code %d\n", state);
             }
         }
     }
