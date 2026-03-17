@@ -1,4 +1,3 @@
-#include "narrowband.h"
 #include <RadioLib.h>
 #include "EspHal.h"
 #include "esp_log.h"
@@ -8,6 +7,8 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <freertos/task.h>
+#include "narrowband.h"
+#include "message.h"
 
 namespace {
 
@@ -38,9 +39,11 @@ namespace {
         QueueHandle_t* sensorDataQueue;
         
         TaskHandle_t rxtxTaskHandle;
-        const UBaseType_t rxtxTaskNotifyIndex = 1; // index of the notification value used for receive ISR flag
+        static constexpr UBaseType_t rxtxTaskNotifyIndex = 1; // index of the notification value used for receive ISR flag
         
         void handleReceive();
+        void transmit_sensor_data();
+        void listen_for_command();
         static void IRAM_ATTR transmit_isr(void);
         static void IRAM_ATTR receive_isr(void);
         static void rxtx_task_trampoline(void* param);
@@ -92,7 +95,7 @@ namespace {
 
         // configure callback for received/transmitted packet; must be a free/IRAM-safe function
         radio.setPacketReceivedAction(receive_isr);
-        radio.setPacketTransmittedAction(transmit_isr);
+        radio.setPacketSentAction(transmit_isr);
 
         // create the rx/tx task
         // xTaskCreate(rxtx_task_trampoline, "narrowband_rxtx", 4096, this, 1, NULL);
@@ -120,24 +123,93 @@ namespace {
 
     void NarrowbandRadio::handleReceive() {
 
+        // TODO: maybe implement a static memory pool to avoid memory fragmentation in the long run
         size_t len = radio.getPacketLength();
-        uint8_t* buf = (uint8_t*)malloc(len + 1); // +1 for null terminator
+        uint8_t* buf = (uint8_t*)malloc(len);
 
         int state = radio.readData(buf, len);
 
         if (state == RADIOLIB_ERR_NONE) {
-            // segfault if data is not null-terminated
-            buf[len] = '\0';
-            ESP_LOGI(TAG, "Received packet: %s\n", buf);
-            // maybe parse command here, currently we just enqueue the raw packet data for processing in the main thread
-            // enqueueCommand(buf);
+
+            message_t msg = {
+                .data = buf,
+                .length = len
+            };
+
+            ESP_LOGI(TAG, "Received packet of length %d bytes\n", len);
+
+            // msg struct is queued by copy, buffer is not, so we need to free it after dequeueing
+            if (xQueueSend( *commandQueue, (void *) &msg, ( TickType_t ) 0 ) != pdTRUE) {
+                ESP_LOGE(TAG, "Failed to enqueue received command, command queue is full!\n");
+            }
         } else if (state == RADIOLIB_ERR_CRC_MISMATCH) {
             ESP_LOGI(TAG, "Received packet with CRC mismatch!\n");
         } else {
             ESP_LOGI(TAG, "Failed to read received packet, code %d\n", state);
         }
+    }
 
-        free(buf);
+    void NarrowbandRadio::transmit_sensor_data() {
+
+        message_t msg;
+        if (xQueueReceive( *sensorDataQueue, &msg, (TickType_t) 0 ) != pdTRUE) {
+            ESP_LOGE(TAG, "Failed to receive sensor data from queue\n");
+            free(msg.data);
+            return;
+        }
+
+        int state = radio.startTransmit(msg.data, msg.length);
+        if (state != RADIOLIB_ERR_NONE) {
+            ESP_LOGI(TAG, "startTransmit failed, code %d\n", state);
+            free(msg.data);
+            return;
+        }
+
+        // wait for transmission to complete or timeout
+        uint32_t ulNotificationValue = ulTaskNotifyTakeIndexed(rxtxTaskNotifyIndex, pdTRUE, pdMS_TO_TICKS(tx_timeout_ms));
+        if (ulNotificationValue == 1) {
+            state = radio.finishTransmit();
+            if (state != RADIOLIB_ERR_NONE) {
+                ESP_LOGI(TAG, "Transmission failed during finishTransmit, code %d\n", state);
+            } else {
+                ESP_LOGI(TAG, "Transmission successful!\n");
+            }
+        } else {
+            ESP_LOGI(TAG, "Transmission timeout, no callback received within %d ms\n", tx_timeout_ms);
+        }
+
+        free(msg.data);
+    }
+
+    // TODO: send back ACKknowledgement for received commands, to give sender the option to retry if ACK is not received within a certain time frame
+    void NarrowbandRadio::listen_for_command() {
+        int state = radio.startReceive();
+        if (state == RADIOLIB_ERR_NONE) {
+            ESP_LOGI(TAG, "Waiting for a packet...\n");
+        } else {
+            ESP_LOGI(TAG, "failed to start receiver, code %d\n", state);
+        }
+
+        // receive for 0.5 s (the amount specified by rxtx_interval_ms)
+        TickType_t start = xTaskGetTickCount();
+        uint16_t elapsed_time_ms = 0;
+        uint32_t ulNotificationValue;
+        while (elapsed_time_ms < rxtx_interval_ms) {
+            ulNotificationValue = ulTaskNotifyTakeIndexed(rxtxTaskNotifyIndex, pdTRUE, pdMS_TO_TICKS(rxtx_interval_ms - elapsed_time_ms));
+            if (ulNotificationValue == 1) {
+                handleReceive();
+                elapsed_time_ms = pdTICKS_TO_MS(xTaskGetTickCount() - start);
+            } else {
+                // timeout, no packet received within the interval
+                break;
+            }
+        }
+        
+        // TODO: check if this can be left out
+        state = radio.finishReceive();
+        if (state != RADIOLIB_ERR_NONE) {
+            ESP_LOGI(TAG, "failed to finish receive, code %d\n", state);
+        }
     }
 
     void NarrowbandRadio::rxtx_task_trampoline(void* param) {
@@ -147,58 +219,10 @@ namespace {
     void NarrowbandRadio::rxtx_task() {
         ESP_LOGI(TAG, "[LLCC68] Started rxtx task!\n");
         rxtxTaskHandle = xTaskGetCurrentTaskHandle();
-        uint32_t ulNotificationValue;
 
-        int state = RADIOLIB_ERR_NONE;
         while (true) {
-            ESP_LOGI(TAG, "[LLCC68] Sending packet...");
-
-            // TODO: replace with sensor data from sensor queue
-            state = radio.startTransmit("Hello world!");
-
-            if (state != RADIOLIB_ERR_NONE) {
-                ESP_LOGI(TAG, "\nstartTransmit failed, code %d\n", state);
-            }
-
-            ulNotificationValue = ulTaskNotifyTakeIndexed(rxtxTaskNotifyIndex, pdTRUE, pdMS_TO_TICKS(tx_timeout_ms));
-            if (ulNotificationValue == 1) {
-                state = radio.finishTransmit();
-                if (state != RADIOLIB_ERR_NONE) {
-                    ESP_LOGI(TAG, "\nTransmission failed during finishTransmit, code %d\n", state);
-                } else {
-                    ESP_LOGI(TAG, " done!\n");
-                }
-            } else {
-                ESP_LOGI(TAG, "\nTransmission timeout, no callback received within %d ms\n", tx_timeout_ms);
-            }
-
-
-            state = radio.startReceive();
-            if (state == RADIOLIB_ERR_NONE) {
-                ESP_LOGI(TAG, "Waiting for a packet...\n");
-            } else {
-                ESP_LOGI(TAG, "failed to start receiver, code %d\n", state);
-            }
-
-            // receive for 0.5 s (the amount specified by rxtx_interval_ms)
-            TickType_t start = xTaskGetTickCount();
-            uint16_t elapsed_time_ms = 0;
-            while (elapsed_time_ms < rxtx_interval_ms) {
-                ulNotificationValue = ulTaskNotifyTakeIndexed(rxtxTaskNotifyIndex, pdTRUE, pdMS_TO_TICKS(rxtx_interval_ms - elapsed_time_ms));
-                if (ulNotificationValue == 1) {
-                    handleReceive();
-                    elapsed_time_ms = pdTICKS_TO_MS(xTaskGetTickCount() - start);
-                } else {
-                    // timeout, no packet received within the interval
-                    break;
-                }
-            }
-            
-            // TODO: check if this can be left out
-            state = radio.finishReceive();
-            if (state != RADIOLIB_ERR_NONE) {
-                ESP_LOGI(TAG, "failed to finish receive, code %d\n", state);
-            }
+            transmit_sensor_data();
+            listen_for_command();
         }
     }
 
