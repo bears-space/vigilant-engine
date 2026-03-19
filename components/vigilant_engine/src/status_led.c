@@ -52,13 +52,15 @@ static TaskHandle_t s_blink_task = NULL;
 
 void configure_led()
 {
+    // Don't initialize if VE_ENABLE_STATUS_LED is unset
+    if (!ENABLE_LED) {
+        return;
+    }
+
+    // Change definitions according to VE_INVERT_STATUS_LED
     if (INVERT_LED) {
         led_on = 0;
         led_off = 1;
-    }
-
-    if (!ENABLE_LED) {
-        return;
     }
 
 #if defined(CONFIG_VE_STATUS_LED_MODE_RGB)
@@ -78,12 +80,13 @@ void configure_led()
 
 static void blink_led(uint8_t led_gpio)
 {
-    // Set the GPIO level according to the state (LOW or HIGH)
+    // Set the GPIO level according to the state
     gpio_set_level(led_gpio, s_blink.state ? led_on : led_off);
 }
 
 static void blink_task(void *arg)
 {
+    // LED to blink
     uint8_t led_gpio = (uint8_t)(intptr_t)arg;
 
     while (s_blink.running) {
@@ -97,20 +100,24 @@ static void blink_task(void *arg)
 
 esp_err_t status_led_blink_start(uint32_t on_ms, uint32_t off_ms, uint8_t led_gpio)
 {
+    // Stop any other blinking first
     status_led_blink_stop();
 
+    //Set to on already and start task immediately after
     s_blink.gpio = led_gpio;
     s_blink.on_ms = on_ms;
     s_blink.off_ms = off_ms;
-    s_blink.state = 0;
+    s_blink.state = 1;
     s_blink.running = true;
 
-    BaseType_t ok = xTaskCreate(blink_task, "status_led_blink", 4096, (void *)(intptr_t)led_gpio, 15, &s_blink_task);
+    // Start task with low priority
+    BaseType_t ok = xTaskCreate(blink_task, "status_led_blink", 4096, (void *)(intptr_t)led_gpio, 5, &s_blink_task);
     return ok == pdPASS ? ESP_OK : ESP_ERR_NO_MEM;
 }
 
 esp_err_t status_led_blink_stop(void)
 {
+    // Terminate task and set GPIO to off
     if (s_blink_task != NULL) {
         vTaskDelete(s_blink_task);
         s_blink_task = NULL;
@@ -122,10 +129,12 @@ esp_err_t status_led_blink_stop(void)
 }
 
 esp_err_t status_led_set_state(status_state_t state) {
+    // No states set if VE_ENABLE_STATUS_LED unset
 #if(!ENABLE_LED)
     return ESP_OK;
 #endif
 
+    // RGB mode
 #if defined(CONFIG_VE_STATUS_LED_MODE_RGB)
     switch (state) {
         case STATUS_STATE_INFO:
@@ -143,6 +152,8 @@ esp_err_t status_led_set_state(status_state_t state) {
         default:
             return status_led_blink_stop();
         }
+    
+    // Blink mode
 #elif defined(CONFIG_VE_STATUS_LED_MODE_BLINK)
     switch (state) {
         case STATUS_STATE_INFO:
@@ -154,6 +165,7 @@ esp_err_t status_led_set_state(status_state_t state) {
         default:
             return status_led_blink_stop();
 }
+
 #else
     return status_led_blink_stop();
 #endif
