@@ -6,8 +6,8 @@ typedef struct {
 
 typedef struct {
     uint16_t message_id;
-    uint8_t start_bit;
-    uint8_t length;
+    uint8_t start_bit; //Depending on device there may be multiple within one frame -> array?
+    uint8_t length;    //Depending on device there may be multiple within one frame -> array?
     float factor;
     float offset;
     float min;

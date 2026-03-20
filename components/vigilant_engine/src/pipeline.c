@@ -28,7 +28,7 @@ Open questions:
 //3. Calculate and apply universal timestamp
 //4. Attach health info & validate
 
-uint64_t unpack_raw(const uint8_t* data, uint8_t start, uint8_t len, uint8_t buf_size) {
+uint64_t unpack_raw(const uint64_t* data, uint8_t start, uint8_t len, uint8_t buf_size) {
     uint64_t raw_data = 0;
 
     uint8_t byte_idx = start / 8;
@@ -55,13 +55,13 @@ float scale_value(uint64_t raw, float factor, float offset) {
 //Select SignalDef based on Device ID extracted from Message ID
 const SignalDef* get_definition(uint16_t can_id) {
     //Device ID in MSB
-    uint8_t device_idx = c(can_id >> 8) & 0x07;
+    uint8_t device_idx = (can_id >> 8) & 0x07;
     
     // Safety check
     if (device_idx < 8) {
         return &dev_lib[device_idx];
     }
-    
+
 //TODO: How to error handling?
     return 1; 
 }
