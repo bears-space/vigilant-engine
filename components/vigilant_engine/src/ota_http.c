@@ -24,6 +24,7 @@ static esp_err_t reboot_factory_handler(httpd_req_t *req)
 
     if (!factory) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "No factory partition");
+        status_led_set_state(STATUS_STATE_ERROR);
         return ESP_FAIL;
     }
 
@@ -31,7 +32,6 @@ static esp_err_t reboot_factory_handler(httpd_req_t *req)
 
     vTaskDelay(pdMS_TO_TICKS(300));
     ESP_ERROR_CHECK(esp_ota_set_boot_partition(factory));
-    ESP_ERROR_CHECK(status_led_off());
     esp_restart();
     return ESP_OK;
 }
@@ -68,6 +68,7 @@ esp_err_t ota_http_register_handlers(httpd_handle_t server)
         ESP_LOGI(TAG_OTA, "Registered Reboot Factory HTTP GET handler at /rebootfactory");
     } else {
         ESP_LOGE(TAG_OTA, "Failed to register Reboot Factory GET handler (%s)", esp_err_to_name(err));
+        status_led_set_state(STATUS_STATE_INFO);
         return err;
     }
 
@@ -76,6 +77,7 @@ esp_err_t ota_http_register_handlers(httpd_handle_t server)
         ESP_LOGI(TAG_OTA, "Registered Vigilant Dashboard HTTP GET handler at /");
     } else {
         ESP_LOGE(TAG_OTA, "Failed to register Vigilant Dashboard GET handler (%s)", esp_err_to_name(err));
+        status_led_set_state(STATUS_STATE_INFO);
         return err;
     }
 

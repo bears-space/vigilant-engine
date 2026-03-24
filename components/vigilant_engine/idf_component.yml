@@ -6,3 +6,4 @@ dependencies:
     rules:
     - if: target in [linux]
   espressif/led_strip: ^3.0.2
+  espressif/cjson: ^1.7.19

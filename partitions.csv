@@ -2,11 +2,7 @@
 nvs,       data, nvs,     0x9000,   0x4000,
 otadata,   data, ota,     0xD000,   0x2000,
 phy_init,  data, phy,     0xF000,   0x1000,
-
-# Factory / Recovery: 1MB
 factory,   app,  factory, 0x10000,  0x100000,
-
-# Main Slot: Rest bis 4MB (≈ 2.94MB)
 ota_0,     app,  ota_0,   0x110000, 0x2F0000,
 
 # esptool.py write_flash 0x110000 build/vigilant-engine.bin 

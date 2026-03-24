@@ -12,19 +12,28 @@
 #include "esp_partition.h"
 #include "esp_system.h"
 #include "esp_mac.h"
+#include "lwip/inet.h"
 #include "status_led.h"
+#include "sdkconfig.h"
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/timers.h"
 
 #include "http_server.h"
+#include "websocket.h"
 
 static const char *TAG = "vigilant";
 
 static esp_netif_t *s_netif_sta = NULL;
 static esp_netif_t *s_netif_ap  = NULL;
+static VigilantConfig s_cfg = {0};
+static TimerHandle_t sta_reconnect_timer;
 
 static wifi_config_t sta_cfg = {
     .sta = {
-        .ssid = "aerobear",
-        .password = "aerobear",
+        .ssid = CONFIG_VE_STA_SSID,
+        .password = CONFIG_VE_STA_PASSWORD,
+        .channel = 1,
         .threshold.authmode = WIFI_AUTH_WPA2_PSK,
     }
 };
@@ -33,7 +42,7 @@ static wifi_config_t ap_cfg = {
     .ap = {
         .ssid = "aerobear-SETUP",      //made unique in later
         .ssid_len = 0,
-        .password = "aerobear",        // leer => open AP, dann aber auch authmode anpassen
+        .password = CONFIG_VE_AP_PASSWORD,        // leer => open AP, dann aber auch authmode anpassen
         .channel = 1,
         .max_connection = 4,
         .authmode = WIFI_AUTH_WPA2_PSK 
@@ -60,15 +69,19 @@ void reboot_to_recovery(void)
     esp_restart();
 }
 
+static void sta_reconnect_callback(TimerHandle_t xTimer) {
+    esp_wifi_connect();
+}
+
 static void wifi_evt(void* arg, esp_event_base_t base, int32_t id, void* data)
 {
     if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
         wifi_event_sta_disconnected_t *e = (wifi_event_sta_disconnected_t*)data;
         ESP_LOGW("wifi", "STA disconnected, reason=%d", e->reason);
-        // optional: reconnect
-        esp_wifi_connect();
+        status_led_set_state(STATUS_STATE_WARNING);
+        xTimerReset(sta_reconnect_timer, 0);
     }
-
+    
     if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t *e = (ip_event_got_ip_t*)data;
         ESP_LOGI("wifi", "Got IP: " IPSTR, IP2STR(&e->ip_info.ip));
@@ -90,6 +103,11 @@ static esp_err_t wifi_init_once(void)
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_evt, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_evt, NULL));
 
+    sta_reconnect_timer = xTimerCreate("wifi_reconnect", 
+                            pdMS_TO_TICKS(CONFIG_VE_STA_RECONNECT_INTERVAL_MS), 
+                            pdFALSE, 
+                            (void *)0, 
+                            sta_reconnect_callback);
 
     inited = true;
     return ESP_OK;
@@ -134,15 +152,6 @@ static esp_err_t wifi_apply_mode(NW_MODE mode,
 esp_err_t vigilant_init(VigilantConfig VgConfig)
 {
     uint8_t mac[6];
-    status_led_config_t led_cfg = {
-        .gpio = CONFIG_VE_STATUS_LED_GPIO,
-        .resolution_hz = 10 * 1000 * 1000,
-        .max_leds = 1,
-        .invert_out = false,
-        .with_dma = false,
-        .mem_block_symbols = 64,
-    };
-    ESP_ERROR_CHECK(status_led_init(&led_cfg));
 
     ESP_LOGI(TAG, "Init NVS");
     esp_err_t ret = nvs_flash_init();
@@ -153,9 +162,17 @@ esp_err_t vigilant_init(VigilantConfig VgConfig)
         ESP_ERROR_CHECK(ret);
     }
 
+    esp_err_t err = configure_led();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to configure status LED: %s", esp_err_to_name(err));
+    }
+
+    // Capture ESP-IDF logs early so they can be replayed to websocket clients
+    websocket_init_log_capture();
+
     ESP_ERROR_CHECK(esp_read_mac(mac, ESP_MAC_WIFI_STA));
     snprintf((char*)ap_cfg.ap.ssid, sizeof(ap_cfg.ap.ssid), 
-             "aerobear-%02X%02X", mac[4], mac[5]);
+             "%s%02X%02X", CONFIG_VE_AP_SSID_PREFIX, mac[4], mac[5]);
     ESP_LOGI(TAG, "Device MAC: %02X:%02X:%02X:%02X:%02X:%02X", 
              mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
@@ -182,5 +199,43 @@ esp_err_t vigilant_init(VigilantConfig VgConfig)
 
     ESP_LOGI(TAG, "Vigilant initialized successfully!");
     ESP_LOGI(TAG, "This node unique name is: %s", VgConfig.unique_component_name);
+    s_cfg = VgConfig;
+
+    //Set info status once
+    status_led_set_state(STATUS_STATE_INFO);
+
+    return ESP_OK;
+}
+
+esp_err_t vigilant_get_info(VigilantInfo *info)
+{
+    if (!info) return ESP_ERR_INVALID_ARG;
+
+    memset(info, 0, sizeof(*info));
+    memcpy(info->unique_component_name, s_cfg.unique_component_name, sizeof(info->unique_component_name));
+    info->network_mode = s_cfg.network_mode;
+
+    uint8_t mac[6] = {0};
+    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    snprintf(info->mac, sizeof(info->mac), "%02X:%02X:%02X:%02X:%02X:%02X",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+    snprintf(info->ap_ssid, sizeof(info->ap_ssid), "%s", (const char*)ap_cfg.ap.ssid);
+    snprintf(info->sta_ssid, sizeof(info->sta_ssid), "%s", (const char*)sta_cfg.sta.ssid);
+
+    esp_netif_ip_info_t ip_sta = {0};
+    if (s_netif_sta && esp_netif_get_ip_info(s_netif_sta, &ip_sta) == ESP_OK) {
+        inet_ntoa_r(ip_sta.ip, info->ip_sta, sizeof(info->ip_sta));
+    } else {
+        strcpy(info->ip_sta, "0.0.0.0");
+    }
+
+    esp_netif_ip_info_t ip_ap = {0};
+    if (s_netif_ap && esp_netif_get_ip_info(s_netif_ap, &ip_ap) == ESP_OK) {
+        inet_ntoa_r(ip_ap.ip, info->ip_ap, sizeof(info->ip_ap));
+    } else {
+        strcpy(info->ip_ap, "0.0.0.0");
+    }
+
     return ESP_OK;
 }
