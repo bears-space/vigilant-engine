@@ -98,7 +98,8 @@ namespace {
         radio.setPacketSentAction(transmit_isr);
 
         // create the rx/tx task
-        // xTaskCreate(rxtx_task_trampoline, "narrowband_rxtx", 4096, this, 1, NULL);
+        xTaskCreate(rxtx_task_trampoline, "rxtx", 4096, this, 1, &rxtxTaskHandle);
+        configASSERT( rxtxTaskHandle != NULL );
 
     }
 
@@ -218,7 +219,6 @@ namespace {
 
     void NarrowbandRadio::rxtx_task() {
         ESP_LOGI(TAG, "[LLCC68] Started rxtx task!\n");
-        rxtxTaskHandle = xTaskGetCurrentTaskHandle();
 
         while (true) {
             transmit_sensor_data();
