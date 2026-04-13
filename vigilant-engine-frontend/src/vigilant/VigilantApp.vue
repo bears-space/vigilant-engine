@@ -76,6 +76,8 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 
 const MAX_LOG_LINES = 200;
+const PING_INTERVAL_MS = 15000;
+const HEARTBEAT_TIMEOUT_MS = 45000;
 
 const deviceName = ref("Vigilant ESP Test");
 const statusText = ref("System Operational");
@@ -89,7 +91,6 @@ const socket = ref<WebSocket | null>(null);
 const reconnectHandle = ref<number | null>(null);
 const reconnectAttempts = ref(0);
 const pingTimer = ref<number | null>(null);
-const heartbeatTimer = ref<number | null>(null);
 const lastHeartbeat = ref<number>(0);
 const connectionOk = ref(false);
 
@@ -177,6 +178,10 @@ function handleLogPayload(raw: unknown) {
   if (!raw || typeof raw !== "object") return;
   const payload = raw as { type?: string; line?: unknown; lines?: unknown };
 
+  if (payload.type === "pong") {
+    return;
+  }
+
   if (payload.type === "logs" && Array.isArray(payload.lines)) {
     const normalized = normalizeLogLines(
       payload.lines.filter((line): line is string => typeof line === "string")
@@ -194,9 +199,18 @@ function handleLogPayload(raw: unknown) {
   }
 }
 
+function clearPingTimer() {
+  if (pingTimer.value !== null) {
+    clearInterval(pingTimer.value);
+    pingTimer.value = null;
+  }
+}
+
 function scheduleReconnect() {
   if (reconnectHandle.value !== null) return;
   socket.value = null;
+  connectionOk.value = false;
+  clearPingTimer();
   reconnectAttempts.value += 1;
   const delay = Math.min(1000 + reconnectAttempts.value * 1000, 2500);
   reconnectHandle.value = window.setTimeout(() => {
@@ -216,11 +230,7 @@ function connectLogStream() {
     socket.value = null;
   }
 
-  if (pingTimer.value !== null) {
-    clearInterval(pingTimer.value);
-    pingTimer.value = null;
-  }
-
+  clearPingTimer();
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
   const ws = new WebSocket(`${protocol}://${window.location.host}/ws`);
 
@@ -232,21 +242,19 @@ function connectLogStream() {
     connectionOk.value = true;
 
     pingTimer.value = window.setInterval(() => {
-      if (ws.readyState === WebSocket.OPEN) {
-        try { ws.send('{\"type\":\"ping\"}'); } catch (_) {}
+      if (ws.readyState !== WebSocket.OPEN) {
+        return;
       }
-    }, 200);
 
-    if (heartbeatTimer.value === null) {
-      heartbeatTimer.value = window.setInterval(() => {
-        const diff = performance.now() - lastHeartbeat.value;
-        const alive = diff <= 1000;
-        connectionOk.value = alive;
-        if (!alive && ws.readyState === WebSocket.OPEN) {
-          try { ws.close(); } catch (_) {}
-        }
-      }, 100);
-    }
+      const diff = performance.now() - lastHeartbeat.value;
+      if (diff > HEARTBEAT_TIMEOUT_MS) {
+        connectionOk.value = false;
+        try { ws.close(); } catch (_) {}
+        return;
+      }
+
+      try { ws.send('{"type":"ping"}'); } catch (_) {}
+    }, PING_INTERVAL_MS);
   });
 
   ws.addEventListener("message", (event) => {
@@ -262,6 +270,7 @@ function connectLogStream() {
 
   ws.addEventListener("close", scheduleReconnect);
   ws.addEventListener("error", () => {
+    connectionOk.value = false;
     scheduleReconnect();
     try { ws.close(); } catch (_) {}
   });
@@ -277,14 +286,7 @@ onBeforeUnmount(() => {
     clearTimeout(reconnectHandle.value);
     reconnectHandle.value = null;
   }
-  if (pingTimer.value !== null) {
-    clearInterval(pingTimer.value);
-    pingTimer.value = null;
-  }
-  if (heartbeatTimer.value !== null) {
-    clearInterval(heartbeatTimer.value);
-    heartbeatTimer.value = null;
-  }
+  clearPingTimer();
   if (socket.value) {
     socket.value.close();
     socket.value = null;
