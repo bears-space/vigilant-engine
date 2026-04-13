@@ -266,3 +266,45 @@ esp_err_t vigilant_get_info(VigilantInfo *info)
 
     return ESP_OK;
 }
+
+esp_err_t vigilant_i2c_add_device(VigilantI2CDevice *device)
+{
+#if CONFIG_VE_ENABLE_I2C
+    return i2c_add_device(device);
+#else
+    (void)device;
+    return ESP_ERR_NOT_SUPPORTED;
+#endif
+}
+
+esp_err_t vigilant_i2c_remove_device(VigilantI2CDevice *device)
+{
+#if CONFIG_VE_ENABLE_I2C
+    return i2c_remove_device(device);
+#else
+    (void)device;
+    return ESP_ERR_NOT_SUPPORTED;
+#endif
+}
+
+esp_err_t vigilant_i2c_read_reg8(VigilantI2CDevice *device, uint8_t reg, uint8_t *value)
+{
+#if CONFIG_VE_ENABLE_I2C
+    return i2c_read_reg8(device, reg, value);
+#else
+    (void)device;
+    (void)reg;
+    (void)value;
+    return ESP_ERR_NOT_SUPPORTED;
+#endif
+}
+
+esp_err_t vigilant_i2c_whoami_check(VigilantI2CDevice *device)
+{
+#if CONFIG_VE_ENABLE_I2C
+    return i2c_whoami_check(device);
+#else
+    (void)device;
+    return ESP_ERR_NOT_SUPPORTED;
+#endif
+}
