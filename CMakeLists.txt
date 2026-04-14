@@ -18,6 +18,7 @@ if(VE_BUILD_WEB)
     message(FATAL_ERROR "npm not found. Install Node.js/npm or set VE_BUILD_WEB=OFF.")
   endif()
 
+  set(VE_NODE_ROOT_DIR "${CMAKE_SOURCE_DIR}")
   # Adjust this to where your Vite project lives inside the ESP-IDF repo
   set(VE_WEB_DIR "${CMAKE_SOURCE_DIR}/vigilant-engine-frontend")
 
@@ -30,6 +31,10 @@ if(VE_BUILD_WEB)
 
   # Track source changes (CONFIGURE_DEPENDS helps when files are added/removed)
   file(GLOB_RECURSE VE_WEB_SOURCES CONFIGURE_DEPENDS
+    "${VE_NODE_ROOT_DIR}/package.json"
+    "${VE_NODE_ROOT_DIR}/package-lock.json"
+    "${VE_NODE_ROOT_DIR}/pnpm-lock.yaml"
+    "${VE_NODE_ROOT_DIR}/yarn.lock"
     "${VE_WEB_DIR}/index.html"
     "${VE_WEB_DIR}/vigilant.html"
     "${VE_WEB_DIR}/vite.config.*"
@@ -42,12 +47,12 @@ if(VE_BUILD_WEB)
 
   add_custom_command(
     OUTPUT "${VE_WEB_STAMP}"
-    WORKING_DIRECTORY "${VE_WEB_DIR}"
 
     # If you prefer npm ci, swap it in (ci requires a lockfile)
-    COMMAND "${NPM_EXECUTABLE}" install
-    COMMAND "${NPM_EXECUTABLE}" run build:vigilant
-    COMMAND "${NPM_EXECUTABLE}" run build:recovery
+    COMMAND "${CMAKE_COMMAND}" -E chdir "${VE_NODE_ROOT_DIR}" "${NPM_EXECUTABLE}" install
+    COMMAND "${CMAKE_COMMAND}" -E chdir "${VE_WEB_DIR}" "${NPM_EXECUTABLE}" install
+    COMMAND "${CMAKE_COMMAND}" -E chdir "${VE_WEB_DIR}" "${NPM_EXECUTABLE}" run build:vigilant
+    COMMAND "${CMAKE_COMMAND}" -E chdir "${VE_WEB_DIR}" "${NPM_EXECUTABLE}" run build:recovery
 
     # Mark successful build
     COMMAND "${CMAKE_COMMAND}" -E touch "${VE_WEB_STAMP}"

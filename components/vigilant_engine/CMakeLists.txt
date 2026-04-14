@@ -3,10 +3,12 @@ idf_build_get_property(target IDF_TARGET)
 idf_build_get_property(build_dir BUILD_DIR)
 
 # Derive frontend path relative to this component to avoid environment-dependent PROJECT_SOURCE_DIR
+get_filename_component(repo_root "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
 get_filename_component(frontend_dir "${CMAKE_CURRENT_LIST_DIR}/../../vigilant-engine-frontend" ABSOLUTE)
 set(vigilant_html_from_build "${build_dir}/static/vigilant/vigilant.html")
 message(STATUS "Project dir: ${PROJECT_SOURCE_DIR}")
 message(STATUS "Component dir: ${CMAKE_CURRENT_LIST_DIR}")
+message(STATUS "Repo root: ${repo_root}")
 message(STATUS "Frontend dir: ${frontend_dir}")
 if(NOT EXISTS "${frontend_dir}/package.json")
     message(FATAL_ERROR "Frontend directory not found at ${frontend_dir}. Is the repo checked out with subdir vigilant-engine-frontend?")
@@ -34,24 +36,33 @@ get_filename_component(NODE_BIN_DIR "${NODE_COMMAND}" DIRECTORY)
 message(STATUS "Using npm at ${NPM_COMMAND}")
 message(STATUS "Using node at ${NODE_COMMAND}")
 
-# Auto-build frontend if the generated HTML is missing
-if(NOT EXISTS "${vigilant_html_from_build}")
-    message(STATUS "Vigilant UI not found at ${vigilant_html_from_build}; running npm run build:vigilant")
+function(run_npm_step working_dir step_label)
     execute_process(
-        COMMAND "${CMAKE_COMMAND}" -E env "PATH=${NODE_BIN_DIR}:$ENV{PATH}" "${NPM_COMMAND}" run build:vigilant
-        WORKING_DIRECTORY "${frontend_dir}"
-        RESULT_VARIABLE npm_result
-        OUTPUT_VARIABLE npm_stdout
-        ERROR_VARIABLE npm_stderr
+        COMMAND "${CMAKE_COMMAND}" -E env "PATH=${NODE_BIN_DIR}:$ENV{PATH}" "${NPM_COMMAND}" ${ARGN}
+        WORKING_DIRECTORY "${working_dir}"
+        RESULT_VARIABLE step_result
+        OUTPUT_VARIABLE step_stdout
+        ERROR_VARIABLE step_stderr
     )
-    if(NOT npm_result EQUAL 0)
+    if(NOT step_result EQUAL 0)
+        string(JOIN " " step_command "${NPM_COMMAND}" ${ARGN})
         message(FATAL_ERROR
-            "npm run build:vigilant failed (exit ${npm_result}).\n"
-            "stdout:\n${npm_stdout}\n"
-            "stderr:\n${npm_stderr}\n"
-            "Install Node.js/npm and run 'npm install' in ${frontend_dir}, then retry."
+            "${step_label} failed (exit ${step_result}) in ${working_dir}.\n"
+            "command: ${step_command}\n"
+            "stdout:\n${step_stdout}\n"
+            "stderr:\n${step_stderr}\n"
         )
     endif()
+endfunction()
+
+# Auto-build frontend if the generated HTML is missing
+if(NOT EXISTS "${vigilant_html_from_build}")
+    message(STATUS "Vigilant UI not found at ${vigilant_html_from_build}; installing npm deps and running npm run build:vigilant")
+    if(EXISTS "${repo_root}/package.json")
+        run_npm_step("${repo_root}" "Repo npm install" install)
+    endif()
+    run_npm_step("${frontend_dir}" "Frontend npm install" install)
+    run_npm_step("${frontend_dir}" "npm run build:vigilant" run build:vigilant)
 endif()
 
 # Re-check after build
