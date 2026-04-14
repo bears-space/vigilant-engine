@@ -1,6 +1,6 @@
 # Vigilant Engine
 
-Vigilant Engine is the ESP-IDF framework for Aerobear ESP-based nodes. It provides a stable base for
+Vigilant Engine is the ESP-IDF framework for STARSTREAK ESP-based nodes. It provides a stable base for
 networked devices with OTA updates, multiple Wi-Fi modes, a web configuration surface, and a shared
 peripheral layer.
 
@@ -16,4 +16,5 @@ peripheral layer.
 - Get started: [Getting Started](getting-started.md)
 - Build and flash: [Build & Flash](build-flash.md)
 - Recovery and OTA: [Recovery & OTA](recovery-ota.md)
+- I2C interface: [I2C Interface](i2c-interface.md)
 - Flash helper reference: [Flash Helper](flash-helper.md)

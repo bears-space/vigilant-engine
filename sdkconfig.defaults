@@ -31,7 +31,8 @@ CONFIG_HTTPD_SERVER_EVENT_POST_TIMEOUT=2000
 # end of HTTP Server
 
 #Avoid Status LED conflicts
-CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG=n
+#CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG=n
+# !!! THIS LINE IS COMMENTED OUT ON PURPOSE !!! For booleans set to off, the expected form is # CONFIG_NAME is not set, not CONFIG_NAME=n
 
 #To enable logging while using the timer
 #Weirdly also fixes the serial time out?

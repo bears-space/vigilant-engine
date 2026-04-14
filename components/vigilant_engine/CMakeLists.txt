@@ -1,4 +1,4 @@
-set(requires esp-tls nvs_flash esp_netif esp_http_server driver)
+set(requires esp-tls nvs_flash esp_netif esp_http_server driver esp_driver_gpio esp_driver_i2c)
 idf_build_get_property(target IDF_TARGET)
 idf_build_get_property(build_dir BUILD_DIR)
 
@@ -73,18 +73,26 @@ endif()
 set(vigilant_html "${vigilant_html_from_build}")
 
 if(${target} STREQUAL "linux")
-    list(APPEND requires esp_stubs protocol_examples_common)
+    list(APPEND requires esp_stubs)
 else()
     list(APPEND requires esp_wifi esp_eth)
 endif()
 
+set(vigilant_engine_srcs
+    "src/http_server.c"
+    "src/ota_http.c"
+    "src/vigilant.c"
+    "src/status_led.c"
+    "src/websocket.c"
+)
+
+if(CONFIG_VE_ENABLE_I2C)
+    list(APPEND vigilant_engine_srcs "src/i2c.c")
+endif()
+
 idf_component_register(
     SRCS
-        "src/http_server.c"
-        "src/ota_http.c"
-        "src/vigilant.c"
-        "src/status_led.c"
-        "src/websocket.c"
+        ${vigilant_engine_srcs}
     INCLUDE_DIRS
         "include"
     EMBED_FILES

@@ -1,6 +1,6 @@
 # Peripherals
 
-Vigilant Engine includes drivers and integration for common peripherals used across Aerobear nodes.
+Vigilant Engine includes drivers and integration for common peripherals used across STARSTREAK nodes.
 
 ## Supported peripherals
 
@@ -9,6 +9,12 @@ Vigilant Engine includes drivers and integration for common peripherals used acr
 - **TCAN332**: CAN transceiver **(NOT IMPLEMENTED!)**
 
 These peripherals are wrapped behind a common abstraction layer to simplify reuse across multiple firmware targets.
+
+## I2C bus
+
+Vigilant Engine also provides an optional shared I2C master interface for external sensors and peripherals.
+
+For setup and API usage, see the [I2C Interface](./i2c-interface.md) page.
 
 ### Status LED
 

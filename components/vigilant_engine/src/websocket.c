@@ -44,6 +44,15 @@ static vprintf_like_t s_orig_vprintf = NULL;
 static void send_log_history(int fd);
 static esp_err_t ws_queue_send_text(int fd, const char *text);
 
+static bool ws_client_is_connected(int fd)
+{
+    if (!s_server_handle || fd < 0) {
+        return false;
+    }
+
+    return httpd_ws_get_fd_info(s_server_handle, fd) == HTTPD_WS_CLIENT_WEBSOCKET;
+}
+
 static void ensure_mutex(void)
 {
     if (!s_ws_mutex) {
@@ -58,13 +67,23 @@ static void ws_clients_add(int fd)
 
     xSemaphoreTake(s_ws_mutex, portMAX_DELAY);
     for (int i = 0; i < MAX_WS_CLIENTS; ++i) {
+        if (s_clients[i].active && s_clients[i].fd == fd) {
+            xSemaphoreGive(s_ws_mutex);
+            return;
+        }
+    }
+
+    for (int i = 0; i < MAX_WS_CLIENTS; ++i) {
         if (!s_clients[i].active) {
             s_clients[i].fd = fd;
             s_clients[i].active = true;
-            break;
+            xSemaphoreGive(s_ws_mutex);
+            return;
         }
     }
     xSemaphoreGive(s_ws_mutex);
+
+    ESP_LOGW(TAG_WS, "WS client table full, dropping fd=%d", fd);
 }
 
 static void ws_clients_remove(int fd)
@@ -74,6 +93,7 @@ static void ws_clients_remove(int fd)
     for (int i = 0; i < MAX_WS_CLIENTS; ++i) {
         if (s_clients[i].active && s_clients[i].fd == fd) {
             s_clients[i].active = false;
+            s_clients[i].fd = -1;
         }
     }
     xSemaphoreGive(s_ws_mutex);
@@ -99,6 +119,13 @@ static void ws_send_text_async(void *arg)
 {
     ws_send_arg_t *a = (ws_send_arg_t *)arg;
     if (!a) return;
+
+    if (!ws_client_is_connected(a->fd)) {
+        ws_clients_remove(a->fd);
+        free(a->payload);
+        free(a);
+        return;
+    }
 
     httpd_ws_frame_t frame = {
         .final = true,
@@ -252,10 +279,10 @@ static esp_err_t websocket_handler(httpd_req_t *req)
 {
     esp_err_t ret = ESP_OK;
     httpd_ws_frame_t ws_pkt = {0};
+    int fd = httpd_req_to_sockfd(req);
 
     // Handshake call
     if (req->method == HTTP_GET) {
-        int fd = httpd_req_to_sockfd(req);
         ws_clients_add(fd);
         send_log_history(fd);
         ESP_LOGI(TAG_WS, "WebSocket client connected: fd=%d", fd);
@@ -265,8 +292,15 @@ static esp_err_t websocket_handler(httpd_req_t *req)
     // 1) First pass: query frame length/type
     ret = httpd_ws_recv_frame(req, &ws_pkt, 0);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG_WS, "httpd_ws_recv_frame(len) failed: %d", ret);
+        ws_clients_remove(fd);
         return ret;
+    }
+
+    if (ws_pkt.type == HTTPD_WS_TYPE_CLOSE) {
+        ws_clients_remove(fd);
+        if (ws_pkt.len == 0) {
+            return ESP_OK;
+        }
     }
 
     if (ws_pkt.len == 0) {
@@ -287,13 +321,13 @@ static esp_err_t websocket_handler(httpd_req_t *req)
     // 3) Second pass: actually receive frame data
     ret = httpd_ws_recv_frame(req, &ws_pkt, ws_pkt.len);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG_WS, "httpd_ws_recv_frame(payload) failed: %d", ret);
+        ws_clients_remove(fd);
         free(ws_pkt.payload);
         return ret;
     }
 
     if (ws_pkt.type == HTTPD_WS_TYPE_CLOSE) {
-        ws_clients_remove(httpd_req_to_sockfd(req));
+        ws_clients_remove(fd);
         free(ws_pkt.payload);
         return ESP_OK;
     }
@@ -315,7 +349,10 @@ static esp_err_t websocket_handler(httpd_req_t *req)
     cJSON *type = cJSON_GetObjectItem(root, "type");
     if (cJSON_IsString(type) && type->valuestring &&
         strcmp(type->valuestring, "get-logs") == 0) {
-        send_log_history(httpd_req_to_sockfd(req));
+        send_log_history(fd);
+    } else if (cJSON_IsString(type) && type->valuestring &&
+               strcmp(type->valuestring, "ping") == 0) {
+        ws_send_text(req, "{\"type\":\"pong\"}");
     } else {
         ws_send_text(req, "{\"type\":\"error\",\"msg\":\"unknown or missing type\"}");
     }

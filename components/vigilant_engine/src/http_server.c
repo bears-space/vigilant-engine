@@ -15,9 +15,6 @@
 #include "esp_netif.h"
 #include "esp_tls_crypto.h"
 
-#include "protocol_examples_common.h"
-#include "protocol_examples_utils.h"
-
 #include "ota_http.h"
 #include "vigilant.h"
 #include "websocket.h"
@@ -30,6 +27,45 @@
 static const char *TAG = "http_server";
 
 static httpd_handle_t s_server = NULL;   // unser globaler Server-Handle
+
+static int hex_nibble(char c)
+{
+    if (c >= '0' && c <= '9') {
+        return c - '0';
+    }
+    if (c >= 'a' && c <= 'f') {
+        return c - 'a' + 10;
+    }
+    if (c >= 'A' && c <= 'F') {
+        return c - 'A' + 10;
+    }
+    return -1;
+}
+
+static void uri_decode(char *dest, const char *src, size_t len)
+{
+    if (!dest || !src) {
+        return;
+    }
+
+    size_t rd = 0;
+    size_t wr = 0;
+    while (rd < len && src[rd] != '\0') {
+        if (src[rd] == '%' && (rd + 2) < len) {
+            int hi = hex_nibble(src[rd + 1]);
+            int lo = hex_nibble(src[rd + 2]);
+            if (hi >= 0 && lo >= 0) {
+                dest[wr++] = (char)((hi << 4) | lo);
+                rd += 3;
+                continue;
+            }
+        }
+
+        dest[wr++] = src[rd++];
+    }
+
+    dest[wr] = '\0';
+}
 
 static esp_err_t hello_get_handler(httpd_req_t *req)
 {
@@ -75,17 +111,17 @@ static esp_err_t hello_get_handler(httpd_req_t *req)
             char param[HTTP_QUERY_KEY_MAX_LEN], dec_param[HTTP_QUERY_KEY_MAX_LEN] = {0};
             if (httpd_query_key_value(buf, "query1", param, sizeof(param)) == ESP_OK) {
                 ESP_LOGI(TAG, "Found URL query parameter => query1=%s", param);
-                example_uri_decode(dec_param, param, strnlen(param, HTTP_QUERY_KEY_MAX_LEN));
+                uri_decode(dec_param, param, strnlen(param, HTTP_QUERY_KEY_MAX_LEN));
                 ESP_LOGI(TAG, "Decoded query parameter => %s", dec_param);
             }
             if (httpd_query_key_value(buf, "query3", param, sizeof(param)) == ESP_OK) {
                 ESP_LOGI(TAG, "Found URL query parameter => query3=%s", param);
-                example_uri_decode(dec_param, param, strnlen(param, HTTP_QUERY_KEY_MAX_LEN));
+                uri_decode(dec_param, param, strnlen(param, HTTP_QUERY_KEY_MAX_LEN));
                 ESP_LOGI(TAG, "Decoded query parameter => %s", dec_param);
             }
             if (httpd_query_key_value(buf, "query2", param, sizeof(param)) == ESP_OK) {
                 ESP_LOGI(TAG, "Found URL query parameter => query2=%s", param);
-                example_uri_decode(dec_param, param, strnlen(param, HTTP_QUERY_KEY_MAX_LEN));
+                uri_decode(dec_param, param, strnlen(param, HTTP_QUERY_KEY_MAX_LEN));
                 ESP_LOGI(TAG, "Decoded query parameter => %s", dec_param);
             }
         }
