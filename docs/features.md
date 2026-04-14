@@ -1,6 +1,6 @@
 # Firmware Features
 
-Vigilant Engine provides a common set of capabilities intended to be reused across Aerobear nodes.
+Vigilant Engine provides a common set of capabilities intended to be reused across STARSTREAK nodes.
 
 ## OTA updates
 

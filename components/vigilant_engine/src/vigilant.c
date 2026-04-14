@@ -41,7 +41,7 @@ static wifi_config_t sta_cfg = {
 
 static wifi_config_t ap_cfg = {
     .ap = {
-        .ssid = "aerobear-SETUP",      //made unique in later
+        .ssid = "starstreak-SETUP",      //made unique in later
         .ssid_len = 0,
         .password = CONFIG_VE_AP_PASSWORD,        // leer => open AP, dann aber auch authmode anpassen
         .channel = 1,

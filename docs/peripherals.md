@@ -1,6 +1,6 @@
 # Peripherals
 
-Vigilant Engine includes drivers and integration for common peripherals used across Aerobear nodes.
+Vigilant Engine includes drivers and integration for common peripherals used across STARSTREAK nodes.
 
 ## Supported peripherals
 
