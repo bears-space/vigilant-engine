@@ -96,61 +96,64 @@ esp_err_t configure_led()
         led_on = 0;
         led_off = 1;
     }
+    #if ENABLE_LED
+        #if defined(CONFIG_VE_LED_TYPE_WS2812B) // Initialization for WS2812B LED strip using RMT peripheral
+            ESP_LOGI(TAG, "Initializing WS2812B status LED");
+            if (s_strip) return ESP_OK; // already initialized
 
-    #if defined(CONFIG_VE_LED_TYPE_WS2812B) // Initialization for WS2812B LED strip using RMT peripheral
-        ESP_LOGI(TAG, "Initializing WS2812B status LED");
-        if (s_strip) return ESP_OK; // already initialized
+            led_strip_config_t strip_cfg = {
+                .strip_gpio_num = CONFIG_VE_STATUS_WS2812B_PIN,
+                .max_leds = 1,
+                .led_model = LED_MODEL_WS2812,
+                .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB,
+                .flags = {
+                    .invert_out = INVERT_LED,
+                }
+            };
 
-        led_strip_config_t strip_cfg = {
-            .strip_gpio_num = CONFIG_VE_STATUS_WS2812B_PIN,
-            .max_leds = 1,
-            .led_model = LED_MODEL_WS2812,
-            .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB,
-            .flags = {
-                .invert_out = INVERT_LED,
+            led_strip_rmt_config_t rmt_cfg = {
+                .clk_src = RMT_CLK_SRC_DEFAULT,
+                .resolution_hz = (10 * 1000 * 1000),
+                .mem_block_symbols = 64,
+                .flags = {
+                    .with_dma = false,
+                }
+            };
+
+            esp_err_t err = led_strip_new_rmt_device(&strip_cfg, &rmt_cfg, &s_strip);
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "led_strip_new_rmt_device failed: %s", esp_err_to_name(err));
+                s_strip = NULL;
+                return err;
             }
-        };
 
-        led_strip_rmt_config_t rmt_cfg = {
-            .clk_src = RMT_CLK_SRC_DEFAULT,
-            .resolution_hz = (10 * 1000 * 1000),
-            .mem_block_symbols = 64,
-            .flags = {
-                .with_dma = false,
+            esp_err_t off_err = ws2812b_status_led_off();
+            if (off_err == ESP_OK) {
+                ESP_LOGI(TAG, "Done initializing status LED");
             }
-        };
-
-        esp_err_t err = led_strip_new_rmt_device(&strip_cfg, &rmt_cfg, &s_strip);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "led_strip_new_rmt_device failed: %s", esp_err_to_name(err));
-            s_strip = NULL;
-            return err;
-        }
-
-        esp_err_t off_err = ws2812b_status_led_off();
-        if (off_err == ESP_OK) {
-            ESP_LOGI(TAG, "Done initializing status LED");
-        }
-        return off_err;
-    #elif defined(CONFIG_VE_LED_TYPE_NONE) // Applies initialization for both RGB and BLINK modes, as they both use GPIO output
-        #if defined(CONFIG_VE_STATUS_LED_MODE_RGB)
-            gpio_reset_pin(CONFIG_VE_STATUS_LED_GPIO_RED);
-            gpio_reset_pin(CONFIG_VE_STATUS_LED_GPIO_GREEN);
-            gpio_reset_pin(CONFIG_VE_STATUS_LED_GPIO_BLUE);
-        
-            gpio_set_direction(CONFIG_VE_STATUS_LED_GPIO_RED, GPIO_MODE_OUTPUT);
-            gpio_set_direction(CONFIG_VE_STATUS_LED_GPIO_GREEN, GPIO_MODE_OUTPUT);
-            gpio_set_direction(CONFIG_VE_STATUS_LED_GPIO_BLUE, GPIO_MODE_OUTPUT);
-        
-        #elif defined(CONFIG_VE_STATUS_LED_MODE_BLINK)
-            gpio_reset_pin(CONFIG_VE_STATUS_LED_GPIO_BLINK);
-            gpio_set_direction(CONFIG_VE_STATUS_LED_GPIO_BLINK, GPIO_MODE_OUTPUT);
+            return off_err;
+        #elif defined(CONFIG_VE_LED_TYPE_NONE) // Applies initialization for both RGB and BLINK modes, as they both use GPIO output
+            #if defined(CONFIG_VE_STATUS_LED_MODE_RGB)
+                gpio_reset_pin(CONFIG_VE_STATUS_LED_GPIO_RED);
+                gpio_reset_pin(CONFIG_VE_STATUS_LED_GPIO_GREEN);
+                gpio_reset_pin(CONFIG_VE_STATUS_LED_GPIO_BLUE);
+            
+                gpio_set_direction(CONFIG_VE_STATUS_LED_GPIO_RED, GPIO_MODE_OUTPUT);
+                gpio_set_direction(CONFIG_VE_STATUS_LED_GPIO_GREEN, GPIO_MODE_OUTPUT);
+                gpio_set_direction(CONFIG_VE_STATUS_LED_GPIO_BLUE, GPIO_MODE_OUTPUT);
+            
+            #elif defined(CONFIG_VE_STATUS_LED_MODE_BLINK)
+                gpio_reset_pin(CONFIG_VE_STATUS_LED_GPIO_BLINK);
+                gpio_set_direction(CONFIG_VE_STATUS_LED_GPIO_BLINK, GPIO_MODE_OUTPUT);
+            #endif
+        #else
+            #error "No valid VE_LED_TYPE selected"
+            ESP_LOGI(TAG, "NO VALID VE_LED_TYPE SELECTED, NOT INITIALIZING STATUS LED");
         #endif
+        ESP_LOGI(TAG, "Done initializing status LED");
     #else
-        #error "No valid VE_LED_TYPE selected"
-        ESP_LOGI(TAG, "NO VALID VE_LED_TYPE SELECTED, NOT INITIALIZING STATUS LED");
+        ESP_LOGI(TAG, "ENABLE_LED is false, skipping status LED initialization");
     #endif
-    ESP_LOGI(TAG, "Done initializing status LED");
     return ESP_OK;
 }
 
