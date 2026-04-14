@@ -17,12 +17,17 @@ if(VE_BUILD_WEB)
   endif()
 
   get_filename_component(VE_REPO_ROOT "${CMAKE_SOURCE_DIR}/.." ABSOLUTE)
+  set(VE_NODE_ROOT_DIR "${VE_REPO_ROOT}")
   set(VE_WEB_DIR "${VE_REPO_ROOT}/vigilant-engine-frontend")
 
   set(VE_OUT_RECOVERY "${CMAKE_SOURCE_DIR}/main/static/index.html")
   set(VE_WEB_STAMP "${CMAKE_BINARY_DIR}/ve_web_build.stamp")
 
   file(GLOB_RECURSE VE_WEB_SOURCES CONFIGURE_DEPENDS
+    "${VE_NODE_ROOT_DIR}/package.json"
+    "${VE_NODE_ROOT_DIR}/package-lock.json"
+    "${VE_NODE_ROOT_DIR}/pnpm-lock.yaml"
+    "${VE_NODE_ROOT_DIR}/yarn.lock"
     "${VE_WEB_DIR}/index.html"
     "${VE_WEB_DIR}/vigilant.html"
     "${VE_WEB_DIR}/vite.config.*"
@@ -35,10 +40,10 @@ if(VE_BUILD_WEB)
 
   add_custom_command(
     OUTPUT "${VE_WEB_STAMP}"
-    WORKING_DIRECTORY "${VE_WEB_DIR}"
 
-    COMMAND "${NPM_EXECUTABLE}" install
-    COMMAND "${NPM_EXECUTABLE}" run build:recovery
+    COMMAND "${CMAKE_COMMAND}" -E chdir "${VE_NODE_ROOT_DIR}" "${NPM_EXECUTABLE}" install
+    COMMAND "${CMAKE_COMMAND}" -E chdir "${VE_WEB_DIR}" "${NPM_EXECUTABLE}" install
+    COMMAND "${CMAKE_COMMAND}" -E chdir "${VE_WEB_DIR}" "${NPM_EXECUTABLE}" run build:recovery
 
     COMMAND "${CMAKE_COMMAND}" -E touch "${VE_WEB_STAMP}"
 
