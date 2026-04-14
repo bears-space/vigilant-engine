@@ -1,9 +1,13 @@
+<<<<<<< HEAD
 #include <unistd.h>
 #include "esp_log.h"
 #include "vigilant.h"
 #include "status_led.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+
+#include "message.h"
+#include "narrowband.h"
 
 // static const char *TAG = "app_main";
 
@@ -35,4 +39,9 @@ void app_main(void)
         ESP_LOGI("app_main i2c test", "reg 0x27 value: 0x%02X", value);
         ESP_ERROR_CHECK(vigilant_i2c_remove_device(&device)); // Removing a device
     }
+
+    // init narrowband communication
+    QueueHandle_t commandQueue = xQueueCreate(10, sizeof(message_t));   // for now we initialize the queues to 10 elements, perhaps subject to change
+    QueueHandle_t sensorDataQueue = xQueueCreate(10, sizeof(message_t));
+    init_narrowband(&commandQueue, &sensorDataQueue);
 }
