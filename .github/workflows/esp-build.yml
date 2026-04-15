@@ -12,9 +12,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build with ESP-IDF
-        uses: espressif/esp-idf-ci-action@v1.1.0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          target: esp32c6
-          esp_idf_version: v6.0
-          command: idf.py build
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            vigilant-engine-frontend/package-lock.json
+
+      - name: Install ESP-IDF
+        uses: espressif/install-esp-idf-action@v1
+        with:
+          version: v6.0
+
+      - name: Build with ESP-IDF
+        env:
+          IDF_TARGET: esp32c6
+        run: idf.py build
