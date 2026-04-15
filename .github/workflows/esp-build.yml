@@ -1,11 +1,14 @@
-name: ESP-IDF Build
+name: Frontend and Firmware CI
 
 on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  build:
+  frontend:
     runs-on: ubuntu-latest
 
     steps:
@@ -17,16 +20,55 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            vigilant-engine-frontend/package-lock.json
+          cache-dependency-path: vigilant-engine-frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: vigilant-engine-frontend
+        run: npm ci
+
+      - name: Build frontend assets
+        working-directory: vigilant-engine-frontend
+        run: |
+          npm run build:vigilant
+          npm run build:recovery
+
+      - name: Collect frontend artifacts
+        run: |
+          mkdir -p .ci-artifacts/frontend
+          cp build/static/vigilant/vigilant.html .ci-artifacts/frontend/vigilant.html
+          cp build/static/recovery/index.html .ci-artifacts/frontend/recovery.html
+
+      - name: Upload frontend artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-static
+          path: .ci-artifacts/frontend
+          if-no-files-found: error
+
+  firmware:
+    runs-on: ubuntu-latest
+    needs: frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download frontend artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-static
+          path: .ci-artifacts/frontend
 
       - name: Install ESP-IDF
         uses: espressif/install-esp-idf-action@v1
         with:
           version: v6.0
 
-      - name: Build with ESP-IDF
+      - name: Build firmware
         env:
           IDF_TARGET: esp32c6
-        run: idf.py build
+        run: |
+          idf.py \
+            -DVE_BUILD_WEB=OFF \
+            -DVE_VIGILANT_HTML="${GITHUB_WORKSPACE}/.ci-artifacts/frontend/vigilant.html" \
+            build
