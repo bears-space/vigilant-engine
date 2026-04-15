@@ -48,6 +48,8 @@ jobs:
   firmware:
     runs-on: ubuntu-latest
     needs: frontend
+    env:
+      ESP_IDF_VERSION: v6.0
 
     steps:
       - name: Checkout repository
@@ -59,15 +61,38 @@ jobs:
           name: frontend-static
           path: .ci-artifacts/frontend
 
+      - name: Cache ESP-IDF
+        id: cache-esp-idf
+        uses: actions/cache@v4
+        with:
+          path: |
+            /tmp/esp
+            ~/.espressif
+          key: ${{ runner.os }}-esp-idf-${{ env.ESP_IDF_VERSION }}-v1
+
       - name: Install ESP-IDF
+        if: steps.cache-esp-idf.outputs.cache-hit != 'true'
         uses: espressif/install-esp-idf-action@v1
         with:
-          version: v6.0
+          version: ${{ env.ESP_IDF_VERSION }}
+
+      - name: Locate ESP-IDF export script
+        id: esp-idf
+        shell: bash
+        run: |
+          export_script="$(find /tmp/esp/idf -path '*/esp-idf/export.sh' | sort | tail -n 1)"
+          if [ -z "${export_script}" ]; then
+            echo "ESP-IDF export.sh not found under /tmp/esp/idf" >&2
+            exit 1
+          fi
+          echo "export_script=${export_script}" >> "${GITHUB_OUTPUT}"
 
       - name: Build firmware
         env:
           IDF_TARGET: esp32c6
+        shell: bash
         run: |
+          . "${{ steps.esp-idf.outputs.export_script }}"
           idf.py \
             -DVE_BUILD_WEB=OFF \
             -DVE_VIGILANT_HTML="${GITHUB_WORKSPACE}/.ci-artifacts/frontend/vigilant.html" \
