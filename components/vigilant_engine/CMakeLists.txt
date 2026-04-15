@@ -1,6 +1,8 @@
 set(requires esp-tls nvs_flash esp_netif esp_http_server driver esp_driver_gpio esp_driver_i2c)
 idf_build_get_property(target IDF_TARGET)
 idf_build_get_property(build_dir BUILD_DIR)
+idf_build_get_property(ve_build_web VE_BUILD_WEB)
+idf_build_get_property(ve_vigilant_html VE_VIGILANT_HTML)
 
 # Derive frontend path relative to this component to avoid environment-dependent PROJECT_SOURCE_DIR.
 get_filename_component(repo_root "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
@@ -8,11 +10,11 @@ get_filename_component(frontend_dir "${CMAKE_CURRENT_LIST_DIR}/../../vigilant-en
 set(vigilant_html_from_build "${build_dir}/static/vigilant/vigilant.html")
 set(vigilant_html "")
 
-if(VE_VIGILANT_HTML)
-    if(IS_ABSOLUTE "${VE_VIGILANT_HTML}")
-        set(vigilant_html "${VE_VIGILANT_HTML}")
+if(ve_vigilant_html)
+    if(IS_ABSOLUTE "${ve_vigilant_html}")
+        set(vigilant_html "${ve_vigilant_html}")
     else()
-        get_filename_component(vigilant_html "${repo_root}/${VE_VIGILANT_HTML}" ABSOLUTE)
+        get_filename_component(vigilant_html "${repo_root}/${ve_vigilant_html}" ABSOLUTE)
     endif()
 
     if(NOT EXISTS "${vigilant_html}")
@@ -48,7 +50,7 @@ endfunction()
 
 # Auto-build the frontend when allowed and no prebuilt HTML was supplied.
 if(NOT vigilant_html)
-    if(NOT VE_BUILD_WEB)
+    if(NOT ve_build_web)
         message(FATAL_ERROR
             "Vigilant UI HTML is missing and VE_BUILD_WEB=OFF.\n"
             "Provide -DVE_VIGILANT_HTML=/path/to/vigilant.html or place a prebuilt file at ${vigilant_html_from_build}."

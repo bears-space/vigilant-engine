@@ -11,4 +11,8 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
 # "Trim" the build. Include the minimal set of components, main, and anything it depends on.
 idf_build_set_property(MINIMAL_BUILD ON)
+# ESP-IDF evaluates component CMake files once before idf_component_register(); use
+# build properties so component logic can still read these values during that pass.
+idf_build_set_property(VE_BUILD_WEB "${VE_BUILD_WEB}")
+idf_build_set_property(VE_VIGILANT_HTML "${VE_VIGILANT_HTML}")
 project(vigilant-engine)
