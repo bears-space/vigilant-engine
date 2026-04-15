@@ -1,0 +1,20 @@
+name: ESP-IDF Build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build with ESP-IDF
+        uses: espressif/esp-idf-ci-action@v1.1.0
+        with:
+          target: esp32c6
+          esp_idf_version: v6.0
+          command: idf.py build
