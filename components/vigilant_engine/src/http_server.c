@@ -231,6 +231,39 @@ static const httpd_uri_t info_uri = {
     .user_ctx  = NULL,
 };
 
+static esp_err_t i2cinfo_get_handler(httpd_req_t *req)
+{
+    VigilantI2cInfo info = {0};
+    esp_err_t err = vigilant_get_i2cinfo(&info);
+    if (err != ESP_OK) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to fetch i2c info");
+        return err;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    char payload[256];
+    int written = snprintf(payload, sizeof(payload),
+        "{\"enabled\":\"true\"}",
+        );
+
+    if (written < 0 || written >= (int)sizeof(payload)) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Info too large");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_send(req, payload, written);
+    return ESP_OK;
+}
+
+static const httpd_uri_t i2cinfo_uri = {
+    .uri       = "/i2cinfo",
+    .method    = HTTP_GET,
+    .handler   = i2cinfo_get_handler,
+    .user_ctx  = NULL,
+};
+
+
+
 esp_err_t http_404_error_handler(httpd_req_t *req, httpd_err_code_t err)
 {
     if (strcmp("/hello", req->uri) == 0) {
@@ -294,6 +327,7 @@ static httpd_handle_t start_webserver_internal(void)
         httpd_register_uri_handler(server, &ctrl);
         httpd_register_uri_handler(server, &any);
         httpd_register_uri_handler(server, &info_uri);
+        httpd_register_uri_handler(server, &i2cinfo_uri);
         websocket_register_handlers(server);
 
         // OTA-Handler registrieren

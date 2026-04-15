@@ -267,6 +267,18 @@ esp_err_t vigilant_get_info(VigilantInfo *info)
     return ESP_OK;
 }
 
+esp_err_t vigilant_get_i2cinfo(VigilantI2cInfo *info)
+{
+    info = malloc(sizeof(VigilantI2cInfo));
+    if (!info) {
+        return ESP_ERR_NO_MEM;
+    }
+    info = memset(info, 0, sizeof(VigilantI2cInfo));
+    info->enabled = CONFIG_VE_ENABLE_I2C;
+    
+    return ESP_OK;
+}
+
 esp_err_t vigilant_i2c_add_device(VigilantI2CDevice *device)
 {
 #if CONFIG_VE_ENABLE_I2C

@@ -28,8 +28,14 @@ typedef struct {
     char ip_ap[16];          // current AP IPv4 (or "0.0.0.0")
 } VigilantInfo;
 
+typedef struct {
+    bool enabled;
+    VigilantI2CDevice devices[8]; // fixed-size array for simplicity; adjust as needed
+} VigilantI2cInfo;
+
 esp_err_t vigilant_init(VigilantConfig VgConfig);
 esp_err_t vigilant_get_info(VigilantInfo *info);
+esp_err_t vigilant_get_i2cinfo(VigilantI2cInfo *info);
 esp_err_t vigilant_i2c_add_device(VigilantI2CDevice *device);
 esp_err_t vigilant_i2c_remove_device(VigilantI2CDevice *device);
 esp_err_t vigilant_i2c_set_reg8(VigilantI2CDevice *device, uint8_t reg, uint8_t value);
