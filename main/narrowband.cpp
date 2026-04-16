@@ -34,6 +34,7 @@ namespace {
         EspHal hal;
         Module module;
         LLCC68 radio;
+        static constexpr uint8_t max_payload_size = 256; // max payload size of LLCC68 is 256 bytes
 
         QueueHandle_t* commandQueue;
         QueueHandle_t* sensorDataQueue;
@@ -164,9 +165,8 @@ namespace {
 
     // TODO: consider if dropping messages when queue is full is acceptable
     // TODO: ackknowledgement mechanism? -> msg_len 0 could indicate an ack msg
-    // return value optimization makes sure no copying takes place even when returning by value, so this is efficient
-    std::array<uint8_t, 256> NarrowbandRadio::pack_messages(QueueHandle_t* queue) {
-        std::array<uint8_t, 256> buffer; // max payload size of LLCC68 is 256 bytes
+    // returns number of bytes packed into buffer
+    size_t NarrowbandRadio::pack_messages(std::span<uint8_t> buffer, QueueHandle_t* queue) {
         size_t offset = 0;
 
         if (currentTxMessage.length > currentTxMessageOffset) {
@@ -196,6 +196,8 @@ namespace {
                     // skip empty messages
                     continue;
                 } else if (currentTxMessage.length > 255) {
+                    // 255 is the limit currently, because our lenght indicator is only 1 byte.
+                    // if longer messages are needed, consider using 2 bytes for length indicator
                     ESP_LOGE(TAG, "Message length exceeds maximum of 255 bytes, truncating message\n");
                     currentTxMessage.length = 255; // truncate message to max length
                 }
@@ -209,7 +211,6 @@ namespace {
 
             } else {
                 // no more messages in the queue
-                // TODO: return length, so packet can be shorter than 256 bytes if there are no more messages to pack
                 currentTxMessage.data = nullptr;
                 currentTxMessage.length = 0;
                 currentTxMessageOffset = 0;
@@ -217,12 +218,13 @@ namespace {
             }
         }
 
-        return buffer;
+        return offset;
     }
 
     // TODO: consider if dropping messages when queue is full is acceptable
     // TODO: ackknowledgement mechanism? -> msg_len 0 could indicate an ack msg
-    void NarrowbandRadio::unpack_messages(const std::array<uint8_t, 256>& buffer, size_t length, QueueHandle_t* queue) {
+    void NarrowbandRadio::unpack_messages(const std::span<uint8_t> buffer, QueueHandle_t* queue) {
+        size_t length = buffer.size();
         size_t offset = 0;
 
         if (currentRxMessage.length > currentRxMessageOffset) {
@@ -254,6 +256,10 @@ namespace {
             uint8_t msg_length = buffer[offset++];
 
             uint8_t* msg_data = (uint8_t*)malloc(msg_length);
+            if (msg_data == nullptr) {
+                ESP_LOGE(TAG, "Failed to allocate memory for received message of length %d bytes\n", msg_length);
+                break; // stop unpacking
+            }
 
             size_t bytes_to_copy = std::min((size_t)msg_length, length - offset);
             memcpy(msg_data, buffer.data() + offset, bytes_to_copy);
@@ -267,6 +273,7 @@ namespace {
                 break;
             }
 
+            // message fully unpacked, enqueue the message
             message_t msg = {
                 .data = msg_data,
                 .length = msg_length
