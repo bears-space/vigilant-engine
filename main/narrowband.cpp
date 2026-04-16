@@ -47,10 +47,11 @@ namespace {
         TaskHandle_t rxtxTaskHandle;
         static constexpr UBaseType_t rxtxTaskNotifyIndex = 1; // index of the notification value used for receive ISR flag
 
-        void handleReceive();
-        std::array<uint8_t, 256> pack_messages();
-        void transmit_sensor_data();
+        size_t pack_messages(std::span<uint8_t> buffer, QueueHandle_t* queue);
+        void unpack_messages(const std::span<uint8_t> buffer, QueueHandle_t* queue);
+        void transmit_data(std::span<uint8_t> buffer);
         void listen_for_command();
+        void handle_receive();
         static void IRAM_ATTR transmit_isr(void);
         static void IRAM_ATTR receive_isr(void);
         static void rxtx_task_trampoline(void* param);
@@ -134,35 +135,6 @@ namespace {
     }
 
 
-    // UNFINISHED, TODO: handle defragmentation
-    void NarrowbandRadio::handleReceive() {
-
-        // TODO: maybe implement a static memory pool to avoid memory fragmentation in the long run
-        size_t len = radio.getPacketLength();
-        uint8_t* buf = (uint8_t*)malloc(len);
-
-        int state = radio.readData(buf, len);
-
-        if (state == RADIOLIB_ERR_NONE) {
-
-            message_t msg = {
-                .data = buf,
-                .length = len
-            };
-
-            ESP_LOGI(TAG, "Received packet of length %d bytes\n", len);
-
-            // msg struct is queued by copy, buffer is not, so we need to free it after dequeueing
-            if (xQueueSend( *commandQueue, (void *) &msg, ( TickType_t ) 0 ) != pdTRUE) {
-                ESP_LOGE(TAG, "Failed to enqueue received command, command queue is full!\n");
-            }
-        } else if (state == RADIOLIB_ERR_CRC_MISMATCH) {
-            ESP_LOGI(TAG, "Received packet with CRC mismatch!\n");
-        } else {
-            ESP_LOGI(TAG, "Failed to read received packet, code %d\n", state);
-        }
-    }
-
     // TODO: consider if dropping messages when queue is full is acceptable
     // TODO: ackknowledgement mechanism? -> msg_len 0 could indicate an ack msg
     // returns number of bytes packed into buffer
@@ -211,6 +183,7 @@ namespace {
 
             } else {
                 // no more messages in the queue
+                ESP_LOGI(TAG, "No more messages to pack in the queue!\n");
                 currentTxMessage.data = nullptr;
                 currentTxMessage.length = 0;
                 currentTxMessageOffset = 0;
@@ -255,6 +228,7 @@ namespace {
         while (offset < length) {
             uint8_t msg_length = buffer[offset++];
 
+            // TODO: maybe implement a static memory pool to avoid memory fragmentation in the long run
             uint8_t* msg_data = (uint8_t*)malloc(msg_length);
             if (msg_data == nullptr) {
                 ESP_LOGE(TAG, "Failed to allocate memory for received message of length %d bytes\n", msg_length);
@@ -286,19 +260,11 @@ namespace {
         }
     }
 
-    void NarrowbandRadio::transmit_sensor_data() {
+    void NarrowbandRadio::transmit_data(std::span<uint8_t> buffer) {
 
-        message_t msg;
-        if (xQueueReceive( *sensorDataQueue, &msg, (TickType_t) 0 ) != pdTRUE) {
-            ESP_LOGE(TAG, "Failed to receive sensor data from queue\n");
-            free(msg.data);
-            return;
-        }
-
-        int state = radio.startTransmit(msg.data, msg.length);
+        int state = radio.startTransmit(buffer.data(), buffer.size());
         if (state != RADIOLIB_ERR_NONE) {
             ESP_LOGI(TAG, "startTransmit failed, code %d\n", state);
-            free(msg.data);
             return;
         }
 
@@ -315,7 +281,29 @@ namespace {
             ESP_LOGI(TAG, "Transmission timeout, no callback received within %d ms\n", tx_timeout_ms);
         }
 
-        free(msg.data);
+    }
+
+    void NarrowbandRadio::handle_receive() {
+
+        // TODO: maybe implement a static memory pool to avoid memory fragmentation in the long run
+        size_t len = radio.getPacketLength();
+        uint8_t* buf = (uint8_t*)malloc(len);
+
+        int state = radio.readData(buf, len);
+
+        if (state == RADIOLIB_ERR_CRC_MISMATCH) {
+            ESP_LOGI(TAG, "Received packet with CRC mismatch!\n");
+            free(buf);
+            return;
+        } else if (state != RADIOLIB_ERR_NONE) {
+            ESP_LOGI(TAG, "Failed to read received packet, code %d\n", state);
+            free(buf);
+            return;
+        }
+
+        ESP_LOGI(TAG, "Received packet with length %d bytes\n", len);
+        unpack_messages(std::span<uint8_t>(buf, len), commandQueue);
+        free(buf);
     }
 
     // TODO: send back ACKknowledgement for received commands, to give sender the option to retry if ACK is not received within a certain time frame
@@ -334,7 +322,7 @@ namespace {
         while (elapsed_time_ms < rxtx_interval_ms) {
             ulNotificationValue = ulTaskNotifyTakeIndexed(rxtxTaskNotifyIndex, pdTRUE, pdMS_TO_TICKS(rxtx_interval_ms - elapsed_time_ms));
             if (ulNotificationValue == 1) {
-                handleReceive();
+                handle_receive();
                 elapsed_time_ms = pdTICKS_TO_MS(xTaskGetTickCount() - start);
             } else {
                 // timeout, no packet received within the interval
@@ -356,8 +344,14 @@ namespace {
     void NarrowbandRadio::rxtx_task() {
         ESP_LOGI(TAG, "[LLCC68] Started rxtx task!\n");
 
+        std::array<uint8_t, max_payload_size> tx_buffer;
         while (true) {
-            transmit_sensor_data();
+
+            // TX
+            size_t bytes_copied = pack_messages(tx_buffer, sensorDataQueue);
+            transmit_data(std::span<uint8_t>(tx_buffer.data(), bytes_copied));
+
+            // RX
             listen_for_command();
         }
     }
