@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Configuration - Vigilant Engine Documentation</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Configuration";
+        var mkdocs_page_input_path = "config.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> Vigilant Engine Documentation
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../getting-started/">Getting Started</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../build-flash/">Build & Flash</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../project-layout/">Project Layout</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../features/">Firmware Features</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Configuration</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#runtime-settings">Runtime settings</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#available-settings">Available settings:</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#unique_component_name-string">unique_component_name, string</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#network_mode-enum">network_mode, enum</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#menuconfig-settings-example-http">Menuconfig Settings (Example / HTTP)</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#example_basic_auth-bool">EXAMPLE_BASIC_AUTH, bool</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#example_basic_auth_username-string">EXAMPLE_BASIC_AUTH_USERNAME, string</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#example_basic_auth_password-string">EXAMPLE_BASIC_AUTH_PASSWORD, string</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#example_enable_sse_handler-bool">EXAMPLE_ENABLE_SSE_HANDLER, bool</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#menuconfig-settings-status-led">Menuconfig Settings (Status LED)</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_invert_status_led-bool">VE_INVERT_STATUS_LED, bool</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_enable_status_led-bool">VE_ENABLE_STATUS_LED, bool</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_led_type-enum">VE_LED_TYPE, enum</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#options_1">Options:</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_status_led_mode-enum">VE_STATUS_LED_MODE, enum</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#options_2">Options:</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_status_ws2812b_pin-int">VE_STATUS_WS2812B_PIN, int</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_status_led_gpio_red-int">VE_STATUS_LED_GPIO_RED, int</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_status_led_gpio_green-int">VE_STATUS_LED_GPIO_GREEN, int</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_status_led_gpio_blue-int">VE_STATUS_LED_GPIO_BLUE, int</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_status_led_gpio_blink-int">VE_STATUS_LED_GPIO_BLINK, int</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#menuconfig-settings-wifi">Menuconfig Settings (WiFi)</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_sta_ssid-string">VE_STA_SSID, string</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_sta_password-string">VE_STA_PASSWORD, string</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_sta_reconnect_interval_ms-int">VE_STA_RECONNECT_INTERVAL_MS, int</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_ap_ssid_prefix-string">VE_AP_SSID_PREFIX, string</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_ap_password-string">VE_AP_PASSWORD, string</a>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../recovery-ota/">Recovery & OTA</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../peripherals/">Peripherals</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../i2c-interface/">I2C Interface</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../troubleshooting/">Troubleshooting</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../partitions/">Partition Table</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../flash-helper/">Flash Helper</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">Vigilant Engine Documentation</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Configuration</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h1>
+<p>Vigilant-Engine can be configured depending on the node. Some settings are present in the Menuconfig, which are not changeable in runtime, and some are configured in runtime.</p>
+<h2 id="runtime-settings">Runtime settings<a class="headerlink" href="#runtime-settings" title="Permanent link">&para;</a></h2>
+<p>Runtime settings are configured in the main file like this:</p>
+<pre><code class="language-c">VigilantConfig VgConfig = {
+    .unique_component_name = &quot;Vigilant ESP Test&quot;,
+    .network_mode = NW_MODE_APSTA
+};
+</code></pre>
+<h3 id="available-settings">Available settings:<a class="headerlink" href="#available-settings" title="Permanent link">&para;</a></h3>
+<hr />
+<h4 id="unique_component_name-string"><code>unique_component_name</code>, <strong>string</strong><a class="headerlink" href="#unique_component_name-string" title="Permanent link">&para;</a></h4>
+<p>The name of the esp node, must be unique.</p>
+<hr />
+<h4 id="network_mode-enum"><code>network_mode</code>, <strong>enum</strong><a class="headerlink" href="#network_mode-enum" title="Permanent link">&para;</a></h4>
+<p>The network mode of the esp node. </p>
+<h6 id="options">Options:<a class="headerlink" href="#options" title="Permanent link">&para;</a></h6>
+<ul>
+<li><code>NW_MODE_APSTA</code> AP and STA mode</li>
+<li><code>NW_MODE_AP</code> AP mode</li>
+<li><code>NW_MODE_STA</code> STA mode</li>
+</ul>
+<hr />
+<h2 id="menuconfig-settings-example-http">Menuconfig Settings (Example / HTTP)<a class="headerlink" href="#menuconfig-settings-example-http" title="Permanent link">&para;</a></h2>
+<hr />
+<h4 id="example_basic_auth-bool"><code>EXAMPLE_BASIC_AUTH</code>, <strong>bool</strong><a class="headerlink" href="#example_basic_auth-bool" title="Permanent link">&para;</a></h4>
+<p>Enable HTTP Basic Authentication for the web server. When enabled, clients must provide a username and password in the HTTP headers before accessing protected resources.</p>
+<p><strong>default</strong>: <code>0</code></p>
+<hr />
+<h4 id="example_basic_auth_username-string"><code>EXAMPLE_BASIC_AUTH_USERNAME</code>, <strong>string</strong><a class="headerlink" href="#example_basic_auth_username-string" title="Permanent link">&para;</a></h4>
+<p>The username used for HTTP Basic Authentication. This setting is only available when <code>EXAMPLE_BASIC_AUTH</code> is enabled.</p>
+<p><strong>default</strong>: <code>"ESP32"</code></p>
+<hr />
+<h4 id="example_basic_auth_password-string"><code>EXAMPLE_BASIC_AUTH_PASSWORD</code>, <strong>string</strong><a class="headerlink" href="#example_basic_auth_password-string" title="Permanent link">&para;</a></h4>
+<p>The password used for HTTP Basic Authentication. This setting is only available when <code>EXAMPLE_BASIC_AUTH</code> is enabled.</p>
+<p><strong>default</strong>: <code>"ESP32Webserver"</code></p>
+<hr />
+<h4 id="example_enable_sse_handler-bool"><code>EXAMPLE_ENABLE_SSE_HANDLER</code>, <strong>bool</strong><a class="headerlink" href="#example_enable_sse_handler-bool" title="Permanent link">&para;</a></h4>
+<p>Enable Server-Sent Events (SSE) support so the server can push real-time updates to connected clients over HTTP.</p>
+<p><strong>default</strong>: <code>0</code></p>
+<hr />
+<h2 id="menuconfig-settings-status-led">Menuconfig Settings (Status LED)<a class="headerlink" href="#menuconfig-settings-status-led" title="Permanent link">&para;</a></h2>
+<hr />
+<h4 id="ve_invert_status_led-bool"><code>VE_INVERT_STATUS_LED</code>, <strong>bool</strong><a class="headerlink" href="#ve_invert_status_led-bool" title="Permanent link">&para;</a></h4>
+<p>Depending on the board and LED, some activate on LOW and some activate on HIGH. To invert and turn the LED on for LOW, set this option to true.</p>
+<p><strong>default</strong>: <code>1</code></p>
+<hr />
+<h4 id="ve_enable_status_led-bool"><code>VE_ENABLE_STATUS_LED</code>, <strong>bool</strong><a class="headerlink" href="#ve_enable_status_led-bool" title="Permanent link">&para;</a></h4>
+<p>Enable status LED, enable this option to use the status LED functionality in Vigilant Engine. The status LED provides visual feedback on the system's status and operations, and can optionally be used for visual output.</p>
+<p><strong>default</strong>: <code>1</code></p>
+<hr />
+<h4 id="ve_led_type-enum"><code>VE_LED_TYPE</code>, <strong>enum</strong><a class="headerlink" href="#ve_led_type-enum" title="Permanent link">&para;</a></h4>
+<p>Select the status LED hardware type used by Vigilant Engine.</p>
+<h6 id="options_1">Options:<a class="headerlink" href="#options_1" title="Permanent link">&para;</a></h6>
+<ul>
+<li><code>VE_LED_TYPE_WS2812B</code> Uses a single WS2812B addressable RGB LED.</li>
+<li><code>VE_LED_TYPE_NONE</code> Uses a generic GPIO-driven LED setup.</li>
+</ul>
+<p>This setting is only available when <code>VE_ENABLE_STATUS_LED</code> is enabled.</p>
+<hr />
+<h4 id="ve_status_led_mode-enum"><code>VE_STATUS_LED_MODE</code>, <strong>enum</strong><a class="headerlink" href="#ve_status_led_mode-enum" title="Permanent link">&para;</a></h4>
+<p>Choose how the status LED conveys information depending on your board or preference. This setting applies when <code>VE_LED_TYPE</code> is set to <code>VE_LED_TYPE_NONE</code>.</p>
+<h6 id="options_2">Options:<a class="headerlink" href="#options_2" title="Permanent link">&para;</a></h6>
+<ul>
+<li><code>VE_STATUS_LED_MODE_RGB</code> Shows status information by changing colors and frequency. Suitable for a basic RGB led consisting of three separate GPIO pins.</li>
+<li><code>VE_STATUS_LED_MODE_BLINK</code> Varies frequency of blinking to match current status. Suitable for a basic led consisting of one GPIO pin.</li>
+</ul>
+<p><strong>default</strong>: <code>VE_STATUS_LED_MODE_RGB</code></p>
+<hr />
+<h4 id="ve_status_ws2812b_pin-int"><code>VE_STATUS_WS2812B_PIN</code>, <strong>int</strong><a class="headerlink" href="#ve_status_ws2812b_pin-int" title="Permanent link">&para;</a></h4>
+<p>The GPIO pin used as the data output for the WS2812B status LED. This setting applies when <code>VE_LED_TYPE</code> is set to <code>VE_LED_TYPE_WS2812B</code>.</p>
+<p><strong>default</strong>: <code>8</code></p>
+<hr />
+<h4 id="ve_status_led_gpio_red-int"><code>VE_STATUS_LED_GPIO_RED</code>, <strong>int</strong><a class="headerlink" href="#ve_status_led_gpio_red-int" title="Permanent link">&para;</a></h4>
+<p>The GPIO pin number for the red status LED in <code>RGB</code> mode. This setting applies when <code>VE_LED_TYPE</code> is set to <code>VE_LED_TYPE_NONE</code> and <code>VE_STATUS_LED_MODE</code> is set to <code>VE_STATUS_LED_MODE_RGB</code>.</p>
+<p><strong>default</strong>: <code>46</code></p>
+<hr />
+<h4 id="ve_status_led_gpio_green-int"><code>VE_STATUS_LED_GPIO_GREEN</code>, <strong>int</strong><a class="headerlink" href="#ve_status_led_gpio_green-int" title="Permanent link">&para;</a></h4>
+<p>The GPIO pin number for the green status LED in <code>RGB</code> mode. This setting applies when <code>VE_LED_TYPE</code> is set to <code>VE_LED_TYPE_NONE</code> and <code>VE_STATUS_LED_MODE</code> is set to <code>VE_STATUS_LED_MODE_RGB</code>.</p>
+<p><strong>default</strong>: <code>0</code></p>
+<hr />
+<h4 id="ve_status_led_gpio_blue-int"><code>VE_STATUS_LED_GPIO_BLUE</code>, <strong>int</strong><a class="headerlink" href="#ve_status_led_gpio_blue-int" title="Permanent link">&para;</a></h4>
+<p>The GPIO pin number for the blue status LED in <code>RGB</code> mode. This setting applies when <code>VE_LED_TYPE</code> is set to <code>VE_LED_TYPE_NONE</code> and <code>VE_STATUS_LED_MODE</code> is set to <code>VE_STATUS_LED_MODE_RGB</code>.</p>
+<p><strong>default</strong>: <code>45</code></p>
+<hr />
+<h4 id="ve_status_led_gpio_blink-int"><code>VE_STATUS_LED_GPIO_BLINK</code>, <strong>int</strong><a class="headerlink" href="#ve_status_led_gpio_blink-int" title="Permanent link">&para;</a></h4>
+<p>The GPIO pin number for the single status LED in <code>BLINK</code> mode. This setting applies when <code>VE_LED_TYPE</code> is set to <code>VE_LED_TYPE_NONE</code> and <code>VE_STATUS_LED_MODE</code> is set to <code>VE_STATUS_LED_MODE_BLINK</code>.</p>
+<p><strong>default</strong>: <code>48</code></p>
+<hr />
+<h2 id="menuconfig-settings-wifi">Menuconfig Settings (WiFi)<a class="headerlink" href="#menuconfig-settings-wifi" title="Permanent link">&para;</a></h2>
+<hr />
+<h4 id="ve_sta_ssid-string"><code>VE_STA_SSID</code>, <strong>string</strong><a class="headerlink" href="#ve_sta_ssid-string" title="Permanent link">&para;</a></h4>
+<p>The SSID of the WiFi network the Vigilant Engine should connect to.</p>
+<p><strong>default</strong>: <code>"starstreak"</code></p>
+<hr />
+<h4 id="ve_sta_password-string"><code>VE_STA_PASSWORD</code>, <strong>string</strong><a class="headerlink" href="#ve_sta_password-string" title="Permanent link">&para;</a></h4>
+<p>The password for the WiFi network the Vigilant Engine should connect to.</p>
+<p><strong>default</strong>: <code>"starstreak"</code></p>
+<hr />
+<h4 id="ve_sta_reconnect_interval_ms-int"><code>VE_STA_RECONNECT_INTERVAL_MS</code>, <strong>int</strong><a class="headerlink" href="#ve_sta_reconnect_interval_ms-int" title="Permanent link">&para;</a></h4>
+<p>The interval in milliseconds for attempting to reconnect to the WiFi network when the connection is lost in STA mode.</p>
+<p><strong>default</strong>: <code>3000</code></p>
+<hr />
+<h4 id="ve_ap_ssid_prefix-string"><code>VE_AP_SSID_PREFIX</code>, <strong>string</strong><a class="headerlink" href="#ve_ap_ssid_prefix-string" title="Permanent link">&para;</a></h4>
+<p>The prefix for the SSID of the WiFi Access Point (AP) mode of the Vigilant Engine. The full SSID will be generated by appending the device's MAC address to this prefix. </p>
+<p><strong>default</strong>: <code>"starstreak-"</code></p>
+<hr />
+<h4 id="ve_ap_password-string"><code>VE_AP_PASSWORD</code>, <strong>string</strong><a class="headerlink" href="#ve_ap_password-string" title="Permanent link">&para;</a></h4>
+<p>The password for the WiFi Access Point (AP) mode of the Vigilant Engine.</p>
+<p><strong>default</strong>: <code>"starstreak"</code></p>
+<hr />
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../features/" class="btn btn-neutral float-left" title="Firmware Features"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../recovery-ota/" class="btn btn-neutral float-right" title="Recovery & OTA">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../features/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../recovery-ota/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

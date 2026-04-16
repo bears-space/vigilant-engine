@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Peripherals - Vigilant Engine Documentation</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Peripherals";
+        var mkdocs_page_input_path = "peripherals.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> Vigilant Engine Documentation
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../getting-started/">Getting Started</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../build-flash/">Build & Flash</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../project-layout/">Project Layout</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../features/">Firmware Features</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../config/">Configuration</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../recovery-ota/">Recovery & OTA</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Peripherals</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#supported-peripherals">Supported peripherals</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#i2c-bus">I2C bus</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#status-led">Status LED</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#rgb-mode">RGB-Mode</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#blink-mode-generic-1-pin-only">Blink-Mode (Generic 1-Pin only)</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../i2c-interface/">I2C Interface</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../troubleshooting/">Troubleshooting</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../partitions/">Partition Table</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../flash-helper/">Flash Helper</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">Vigilant Engine Documentation</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Peripherals</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="peripherals">Peripherals<a class="headerlink" href="#peripherals" title="Permanent link">&para;</a></h1>
+<p>Vigilant Engine includes drivers and integration for common peripherals used across STARSTREAK nodes.</p>
+<h2 id="supported-peripherals">Supported peripherals<a class="headerlink" href="#supported-peripherals" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>WS2812B</strong>: Addressable RGB LEDs (status indication, effects)</li>
+<li><strong>TCAN4550-Q1</strong>: SPI CAN controller <strong>(NOT IMPLEMENTED!)</strong></li>
+<li><strong>TCAN332</strong>: CAN transceiver <strong>(NOT IMPLEMENTED!)</strong></li>
+</ul>
+<p>These peripherals are wrapped behind a common abstraction layer to simplify reuse across multiple firmware targets.</p>
+<h2 id="i2c-bus">I2C bus<a class="headerlink" href="#i2c-bus" title="Permanent link">&para;</a></h2>
+<p>Vigilant Engine also provides an optional shared I2C master interface for external sensors and peripherals.</p>
+<p>For setup and API usage, see the <a href="../i2c-interface/">I2C Interface</a> page.</p>
+<h3 id="status-led">Status LED<a class="headerlink" href="#status-led" title="Permanent link">&para;</a></h3>
+<p>Depending on the mode, the status LED gives information about the status of the device differently.</p>
+<p>Supported LEDs: Generic 1-Pin, Generic RGB, WS2812B</p>
+<p>For more information about the available settings, see the menuconfig and the <a href="../config/">config page</a>.</p>
+<h4 id="rgb-mode">RGB-Mode<a class="headerlink" href="#rgb-mode" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>Green (slow) blinking</strong>: Info, Period is 1s </li>
+<li><strong>Blue (faster) blinking</strong>: Warning, Period is 600ms</li>
+<li><strong>Red (fast) blinking</strong>: Error, Period is 300ms</li>
+</ul>
+<h4 id="blink-mode-generic-1-pin-only">Blink-Mode (Generic 1-Pin only)<a class="headerlink" href="#blink-mode-generic-1-pin-only" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>Slow blinking</strong>: Info, Period is 2s</li>
+<li><strong>Faster blinking</strong>: Warning, Period is 700ms</li>
+<li><strong>Fast blinking</strong>: Error, Period is 100ms</li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../recovery-ota/" class="btn btn-neutral float-left" title="Recovery & OTA"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../i2c-interface/" class="btn btn-neutral float-right" title="I2C Interface">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../recovery-ota/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../i2c-interface/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

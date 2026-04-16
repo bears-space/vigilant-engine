@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Troubleshooting - Vigilant Engine Documentation</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Troubleshooting";
+        var mkdocs_page_input_path = "troubleshooting.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> Vigilant Engine Documentation
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../getting-started/">Getting Started</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../build-flash/">Build & Flash</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../project-layout/">Project Layout</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../features/">Firmware Features</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../config/">Configuration</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../recovery-ota/">Recovery & OTA</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../peripherals/">Peripherals</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../i2c-interface/">I2C Interface</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Troubleshooting</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#idf_path-is-not-set">IDF_PATH is not set</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#bin-not-found">BIN not found</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#port-or-permission-errors">Port or permission errors</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#always-booting-into-the-wrong-partition">Always booting into the wrong partition</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#flash-size-mismatch">Flash size mismatch</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../partitions/">Partition Table</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../flash-helper/">Flash Helper</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">Vigilant Engine Documentation</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Troubleshooting</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h1>
+<h2 id="idf_path-is-not-set"><code>IDF_PATH is not set</code><a class="headerlink" href="#idf_path-is-not-set" title="Permanent link">&para;</a></h2>
+<p>You are not in an ESP-IDF exported shell.</p>
+<ul>
+<li>Windows: open ESP-IDF PowerShell</li>
+<li>Linux/macOS: source <code>export.sh</code></li>
+</ul>
+<h2 id="bin-not-found"><code>BIN not found</code><a class="headerlink" href="#bin-not-found" title="Permanent link">&para;</a></h2>
+<p>Make sure your build succeeded and the binaries exist:</p>
+<ul>
+<li><code>build/vigilant-engine.bin</code></li>
+<li><code>vigilant-engine-recovery/build/vigilant-engine-recovery.bin</code></li>
+</ul>
+<h2 id="port-or-permission-errors">Port or permission errors<a class="headerlink" href="#port-or-permission-errors" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Close serial monitors (for example <code>idf.py monitor</code>) before flashing</li>
+<li>Verify the serial port is correct</li>
+</ul>
+<h2 id="always-booting-into-the-wrong-partition">Always booting into the wrong partition<a class="headerlink" href="#always-booting-into-the-wrong-partition" title="Permanent link">&para;</a></h2>
+<p>Use <code>otatool.py</code> to select the correct slot:</p>
+<pre><code class="language-sh">python $IDF_PATH/components/app_update/otatool.py --port /dev/ttyACM0 switch_ota_partition --slot 0
+</code></pre>
+<h2 id="flash-size-mismatch">Flash size mismatch<a class="headerlink" href="#flash-size-mismatch" title="Permanent link">&para;</a></h2>
+<p><code>flash.py</code> runs <code>idf.py reconfigure</code>, which rebuilds <code>sdkconfig</code> from <code>sdkconfig.defaults</code>. Set the
+correct flash size in <code>sdkconfig.defaults</code> so rebuilds keep the proper values.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../i2c-interface/" class="btn btn-neutral float-left" title="I2C Interface"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../partitions/" class="btn btn-neutral float-right" title="Partition Table">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../i2c-interface/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../partitions/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
