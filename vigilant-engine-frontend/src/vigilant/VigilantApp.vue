@@ -48,32 +48,38 @@
             <div class="connected-section-title">Detected Devices</div>
           </div>
 
-          <button
-            v-for="device in connectedDevices"
-            :key="device.id"
-            type="button"
-            class="connected-device"
-            :class="{ active: activeConnectedDevice.id === device.id }"
-            :aria-pressed="selectedConnectedDeviceId === device.id"
-            @click="selectedConnectedDeviceId = device.id"
-            @mouseenter="hoveredConnectedDeviceId = device.id"
-            @mouseleave="hoveredConnectedDeviceId = null"
-            @focus="hoveredConnectedDeviceId = device.id"
-            @blur="hoveredConnectedDeviceId = null"
-          >
-            <div class="connected-device-copy">
-              <div class="connected-device-name">{{ device.name }}</div>
-            </div>
-            <span
-              class="protocol-pill"
-              :class="protocolPillClass(device.protocol)"
+          <template v-if="connectedDevices.length">
+            <button
+              v-for="device in connectedDevices"
+              :key="device.id"
+              type="button"
+              class="connected-device"
+              :class="{ active: activeConnectedDevice?.id === device.id }"
+              :aria-pressed="selectedConnectedDeviceId === device.id"
+              @click="selectedConnectedDeviceId = device.id"
+              @mouseenter="hoveredConnectedDeviceId = device.id"
+              @mouseleave="hoveredConnectedDeviceId = null"
+              @focus="hoveredConnectedDeviceId = device.id"
+              @blur="hoveredConnectedDeviceId = null"
             >
-              {{ protocolLabel(device.protocol) }}
-            </span>
-          </button>
+              <div class="connected-device-copy">
+                <div class="connected-device-name">{{ device.name }}</div>
+              </div>
+              <span
+                class="protocol-pill"
+                :class="protocolPillClass(device.protocol)"
+              >
+                {{ protocolLabel(device.protocol) }}
+              </span>
+            </button>
+          </template>
+
+          <div v-else class="connected-empty">
+            No connected devices reported.
+          </div>
         </div>
 
-        <div class="connected-detail">
+        <div v-if="activeConnectedDevice" class="connected-detail">
           <div class="connected-detail-header">
             <div class="connected-detail-name">{{ activeConnectedDevice.name }}</div>
             <span
@@ -94,6 +100,13 @@
               <dd>{{ detail.value }}</dd>
             </div>
           </dl>
+        </div>
+
+        <div v-else class="connected-detail connected-empty-panel">
+          <div class="connected-section-title">Device Details</div>
+          <div class="connected-empty">
+            No I2C devices are currently available from `/i2cinfo`.
+          </div>
         </div>
       </section>
 
@@ -147,8 +160,23 @@ type ConnectedDevice = {
   id: string;
   name: string;
   protocol: ProtocolId;
-  summary: string;
   details: Array<{ label: string; value: string }>;
+};
+type I2cApiDevice = {
+  name?: unknown;
+  address?: unknown;
+  address_hex?: unknown;
+  whoami_reg?: unknown;
+  whoami_reg_hex?: unknown;
+  expected_whoami?: unknown;
+  expected_whoami_hex?: unknown;
+};
+type I2cInfoResponse = {
+  enabled?: unknown;
+  sda_io?: unknown;
+  scl_io?: unknown;
+  frequency_hz?: unknown;
+  devices?: unknown;
 };
 
 const MAX_LOG_LINES = 200;
@@ -159,92 +187,13 @@ const tabs = [
   { id: "connected-devices", label: "Connected Devices" },
   { id: "settings", label: "Settings" },
 ] as const;
-const connectedDevices: ConnectedDevice[] = [
-  {
-    id: "bme688",
-    name: "BME688 Environmental Sensor",
-    protocol: "i2c",
-    summary: "Air quality and temperature sensor on the sensor bus.",
-    details: [
-      { label: "Address", value: "0x76" },
-      { label: "Bus", value: "I2C0 @ 400 kHz" },
-      { label: "Polling", value: "1 Hz" },
-      { label: "Power", value: "3.3 V" },
-      { label: "Status", value: "Streaming" },
-    ],
-  },
-  {
-    id: "ina260",
-    name: "INA260 Power Monitor",
-    protocol: "i2c",
-    summary: "Rail telemetry for the primary 12 V supply.",
-    details: [
-      { label: "Address", value: "0x40" },
-      { label: "Bus", value: "I2C0 @ 400 kHz" },
-      { label: "Alert Pin", value: "GPIO7" },
-      { label: "Range", value: "0-15 A" },
-      { label: "Status", value: "Online" },
-    ],
-  },
-  {
-    id: "ads131m04",
-    name: "ADS131M04 ADC",
-    protocol: "spi",
-    summary: "High-resolution analog front-end for sensor capture.",
-    details: [
-      { label: "Chip Select", value: "GPIO10" },
-      { label: "SPI Mode", value: "Mode 1" },
-      { label: "Clock", value: "8 MHz" },
-      { label: "DRDY", value: "GPIO6" },
-      { label: "Status", value: "Sampling" },
-    ],
-  },
-  {
-    id: "fram",
-    name: "External FRAM Buffer",
-    protocol: "spi",
-    summary: "Non-volatile event buffer for short outage capture.",
-    details: [
-      { label: "Chip Select", value: "GPIO11" },
-      { label: "SPI Mode", value: "Mode 0" },
-      { label: "Clock", value: "4 MHz" },
-      { label: "Capacity", value: "256 kB" },
-      { label: "Status", value: "Mounted" },
-    ],
-  },
-  {
-    id: "inverter-node",
-    name: "Inverter Telemetry Node",
-    protocol: "canfd",
-    summary: "Powertrain node publishing fast diagnostic frames.",
-    details: [
-      { label: "Arbitration ID", value: "0x221" },
-      { label: "Nominal Rate", value: "500 kbps" },
-      { label: "Data Rate", value: "2 Mbps" },
-      { label: "Last Frame", value: "24 ms ago" },
-      { label: "Status", value: "Healthy" },
-    ],
-  },
-  {
-    id: "service-laptop",
-    name: "Service Laptop",
-    protocol: "wifi",
-    summary: "Maintenance station connected to the local AP.",
-    details: [
-      { label: "IP Address", value: "192.168.13.42" },
-      { label: "MAC Address", value: "AC:DE:48:00:11:9A" },
-      { label: "RSSI", value: "-54 dBm" },
-      { label: "SSID", value: "Vigilant-Lab" },
-      { label: "Status", value: "Connected" },
-    ],
-  },
-];
 type TabId = (typeof tabs)[number]["id"];
 
 const deviceName = ref("Vigilant ESP Test");
 const statusText = ref("System Operational");
 const activeTab = ref<TabId>("console");
-const selectedConnectedDeviceId = ref(connectedDevices[0]?.id ?? "");
+const connectedDevices = ref<ConnectedDevice[]>([]);
+const selectedConnectedDeviceId = ref("");
 const hoveredConnectedDeviceId = ref<string | null>(null);
 
 const overlayActive = ref(false);
@@ -266,9 +215,9 @@ const consoleHtml = computed(() =>
 );
 const activeConnectedDevice = computed(
   () =>
-    connectedDevices.find(
+    connectedDevices.value.find(
       (device) => device.id === (hoveredConnectedDeviceId.value ?? selectedConnectedDeviceId.value)
-    ) ?? connectedDevices[0]
+    ) ?? connectedDevices.value[0] ?? null
 );
 
 function escapeHtml(s: string) {
@@ -325,10 +274,77 @@ function protocolPillClass(protocol: ProtocolId) {
   return `protocol-${protocol}`;
 }
 
+function asString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function asNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function formatHexByte(value: number | null) {
+  if (value === null) return "n/a";
+  return `0x${value.toString(16).toUpperCase().padStart(2, "0")}`;
+}
+
+function formatI2cBusLabel(response: I2cInfoResponse) {
+  const scl = asNumber(response.scl_io);
+  const sda = asNumber(response.sda_io);
+  const frequencyHz = asNumber(response.frequency_hz);
+  const busParts = ["I2C0"];
+
+  if (frequencyHz !== null) {
+    busParts.push(`@ ${Math.round(frequencyHz / 1000)} kHz`);
+  }
+
+  if (scl !== null && sda !== null) {
+    busParts.push(`SCL ${scl} / SDA ${sda}`);
+  }
+
+  return busParts.join(" ");
+}
+
+function mapI2cDevices(response: I2cInfoResponse): ConnectedDevice[] {
+  if (response.enabled !== true || !Array.isArray(response.devices)) {
+    return [];
+  }
+
+  const busLabel = formatI2cBusLabel(response);
+
+  return response.devices.flatMap((rawDevice) => {
+    if (!rawDevice || typeof rawDevice !== "object") {
+      return [];
+    }
+
+    const device = rawDevice as I2cApiDevice;
+    const address = asNumber(device.address);
+    if (address === null) {
+      return [];
+    }
+
+    const addressHex = asString(device.address_hex) ?? formatHexByte(address);
+    const whoamiReg = asNumber(device.whoami_reg);
+    const expectedWhoami = asNumber(device.expected_whoami);
+
+    return [
+      {
+        id: `i2c-${addressHex.toLowerCase()}`,
+        name: asString(device.name) ?? `I2C Device ${addressHex}`,
+        protocol: "i2c",
+        details: [
+          { label: "Address", value: addressHex },
+          { label: "Bus", value: busLabel },
+          { label: "WHOAMI Reg", value: asString(device.whoami_reg_hex) ?? formatHexByte(whoamiReg) },
+          { label: "Expected WHOAMI", value: asString(device.expected_whoami_hex) ?? formatHexByte(expectedWhoami) },
+        ],
+      },
+    ];
+  });
+}
+
 async function loadDeviceInfo() {
-  const INFO_URL = "http://192.168.13.234/info";
   try {
-    const res = await fetch(INFO_URL, { cache: "no-cache" });
+    const res = await fetch("/info", { cache: "no-cache" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (typeof data?.name === "string" && data.name.trim()) {
@@ -336,6 +352,33 @@ async function loadDeviceInfo() {
     }
   } catch (err) {
     console.warn("Failed to load device info", err);
+  }
+}
+
+async function loadConnectedDevices() {
+  try {
+    const res = await fetch("/i2cinfo", { cache: "no-cache" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data = (await res.json()) as I2cInfoResponse;
+    const devices = mapI2cDevices(data);
+
+    connectedDevices.value = devices;
+    hoveredConnectedDeviceId.value = null;
+
+    if (!devices.length) {
+      selectedConnectedDeviceId.value = "";
+      return;
+    }
+
+    if (!devices.some((device) => device.id === selectedConnectedDeviceId.value)) {
+      selectedConnectedDeviceId.value = devices[0].id;
+    }
+  } catch (err) {
+    connectedDevices.value = [];
+    selectedConnectedDeviceId.value = "";
+    hoveredConnectedDeviceId.value = null;
+    console.warn("Failed to load connected devices", err);
   }
 }
 
@@ -462,11 +505,16 @@ watch(activeTab, async (tabId) => {
     await nextTick();
     scrollConsoleToBottom();
   }
+
+  if (tabId === "connected-devices") {
+    loadConnectedDevices();
+  }
 });
 
 onMounted(() => {
   connectLogStream();
   loadDeviceInfo();
+  loadConnectedDevices();
 });
 
 onBeforeUnmount(() => {
@@ -741,6 +789,16 @@ h1 {
 
 .connected-list {
   align-items: flex-start;
+}
+
+.connected-empty {
+  color: #6b7280;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.connected-empty-panel {
+  justify-content: center;
 }
 
 .connected-list-header,

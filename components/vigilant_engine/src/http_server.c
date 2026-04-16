@@ -241,17 +241,56 @@ static esp_err_t i2cinfo_get_handler(httpd_req_t *req)
     }
 
     httpd_resp_set_type(req, "application/json");
-    char payload[256];
-    int written = snprintf(payload, sizeof(payload),
-        "{\"enabled\":\"true\"}",
-        );
+    char payload[2048];
+    size_t offset = 0;
+    int written = snprintf(
+        payload + offset,
+        sizeof(payload) - offset,
+        "{\"enabled\":%s,\"sda_io\":%u,\"scl_io\":%u,\"frequency_hz\":%" PRIu32 ",\"device_count\":%u,\"devices\":[",
+        info.enabled ? "true" : "false",
+        (unsigned int)info.sda_io,
+        (unsigned int)info.scl_io,
+        info.frequency_hz,
+        (unsigned int)info.device_count
+    );
 
-    if (written < 0 || written >= (int)sizeof(payload)) {
+    if (written < 0 || written >= (int)(sizeof(payload) - offset)) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Info too large");
         return ESP_FAIL;
     }
+    offset += (size_t)written;
 
-    httpd_resp_send(req, payload, written);
+    for (uint8_t i = 0; i < info.device_count; ++i) {
+        const VigilantI2CDevice *device = &info.devices[i];
+        written = snprintf(
+            payload + offset,
+            sizeof(payload) - offset,
+            "%s{\"name\":\"I2C Device 0x%02X\",\"address\":%u,\"address_hex\":\"0x%02X\",\"whoami_reg\":%u,\"whoami_reg_hex\":\"0x%02X\",\"expected_whoami\":%u,\"expected_whoami_hex\":\"0x%02X\"}",
+            i == 0 ? "" : ",",
+            (unsigned int)device->address,
+            (unsigned int)device->address,
+            (unsigned int)device->address,
+            (unsigned int)device->whoami_reg,
+            (unsigned int)device->whoami_reg,
+            (unsigned int)device->expected_whoami,
+            (unsigned int)device->expected_whoami
+        );
+
+        if (written < 0 || written >= (int)(sizeof(payload) - offset)) {
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Info too large");
+            return ESP_FAIL;
+        }
+        offset += (size_t)written;
+    }
+
+    written = snprintf(payload + offset, sizeof(payload) - offset, "]}");
+    if (written < 0 || written >= (int)(sizeof(payload) - offset)) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Info too large");
+        return ESP_FAIL;
+    }
+    offset += (size_t)written;
+
+    httpd_resp_send(req, payload, (ssize_t)offset);
     return ESP_OK;
 }
 

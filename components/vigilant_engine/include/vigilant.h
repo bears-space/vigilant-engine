@@ -30,6 +30,10 @@ typedef struct {
 
 typedef struct {
     bool enabled;
+    uint8_t sda_io;
+    uint8_t scl_io;
+    uint32_t frequency_hz;
+    uint8_t device_count;
     VigilantI2CDevice devices[8]; // fixed-size array for simplicity; adjust as needed
 } VigilantI2cInfo;
 
