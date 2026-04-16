@@ -1,6 +1,6 @@
 #Uncomment and change these to your flash size if you experience issues!
-#CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
-#CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
 
 #
 # Partition Table
