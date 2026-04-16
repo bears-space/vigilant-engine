@@ -24,14 +24,18 @@
 #include "websocket.h"
 
 static const char *TAG = "vigilant";
+#if CONFIG_VE_ENABLE_I2C
 static const size_t MAX_I2C_INFO_DEVICES = 8;
+#endif
 
 static esp_netif_t *s_netif_sta = NULL;
 static esp_netif_t *s_netif_ap  = NULL;
 static VigilantConfig s_cfg = {0};
 static TimerHandle_t sta_reconnect_timer;
+#if CONFIG_VE_ENABLE_I2C
 static VigilantI2CDevice s_i2c_devices[8] = {0};
 static size_t s_i2c_device_count = 0;
+#endif
 
 static wifi_config_t sta_cfg = {
     .sta = {
@@ -53,6 +57,7 @@ static wifi_config_t ap_cfg = {
     }
 };
 
+#if CONFIG_VE_ENABLE_I2C
 static int registered_i2c_device_index(const VigilantI2CDevice *device)
 {
     if (!device) {
@@ -105,6 +110,7 @@ static void remove_registered_i2c_device(const VigilantI2CDevice *device)
     s_i2c_device_count--;
     memset(&s_i2c_devices[s_i2c_device_count], 0, sizeof(s_i2c_devices[0]));
 }
+#endif
 
 static void ap_cfg_fixup(wifi_config_t *cfg)
 {
@@ -330,9 +336,9 @@ esp_err_t vigilant_get_i2cinfo(VigilantI2cInfo *info)
     }
 
     memset(info, 0, sizeof(*info));
-    info->enabled = CONFIG_VE_ENABLE_I2C;
 
 #if CONFIG_VE_ENABLE_I2C
+    info->enabled = true;
     info->sda_io = CONFIG_VE_I2C_SDA_IO;
     info->scl_io = CONFIG_VE_I2C_SCL_IO;
     info->frequency_hz = CONFIG_VE_I2C_FREQ_HZ;
@@ -350,6 +356,8 @@ esp_err_t vigilant_get_i2cinfo(VigilantI2cInfo *info)
     }
 
     info->detected_device_count = (uint8_t)detected_count;
+#else
+    info->enabled = false;
 #endif
 
     return ESP_OK;
