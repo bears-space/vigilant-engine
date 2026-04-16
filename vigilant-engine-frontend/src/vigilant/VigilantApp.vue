@@ -42,6 +42,61 @@
         <pre ref="consoleEl" class="console" v-html="consoleHtml"></pre>
       </section>
 
+      <section v-else-if="activeTab === 'connected-devices'" class="tab-panel connected-panel">
+        <div class="connected-list">
+          <div class="connected-list-header">
+            <div class="connected-section-title">Detected Devices</div>
+          </div>
+
+          <button
+            v-for="device in connectedDevices"
+            :key="device.id"
+            type="button"
+            class="connected-device"
+            :class="{ active: activeConnectedDevice.id === device.id }"
+            :aria-pressed="selectedConnectedDeviceId === device.id"
+            @click="selectedConnectedDeviceId = device.id"
+            @mouseenter="hoveredConnectedDeviceId = device.id"
+            @mouseleave="hoveredConnectedDeviceId = null"
+            @focus="hoveredConnectedDeviceId = device.id"
+            @blur="hoveredConnectedDeviceId = null"
+          >
+            <div class="connected-device-copy">
+              <div class="connected-device-name">{{ device.name }}</div>
+            </div>
+            <span
+              class="protocol-pill"
+              :class="protocolPillClass(device.protocol)"
+            >
+              {{ protocolLabel(device.protocol) }}
+            </span>
+          </button>
+        </div>
+
+        <div class="connected-detail">
+          <div class="connected-detail-header">
+            <div class="connected-detail-name">{{ activeConnectedDevice.name }}</div>
+            <span
+              class="protocol-pill"
+              :class="protocolPillClass(activeConnectedDevice.protocol)"
+            >
+              {{ protocolLabel(activeConnectedDevice.protocol) }}
+            </span>
+          </div>
+
+          <dl class="connected-detail-grid">
+            <div
+              v-for="detail in activeConnectedDevice.details"
+              :key="detail.label"
+              class="connected-detail-row"
+            >
+              <dt>{{ detail.label }}</dt>
+              <dd>{{ detail.value }}</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
       <section v-else-if="activeTab === 'settings'" class="tab-panel settings-panel">
         <div class="settings-group">
           <div class="settings-group-title">Device Settings</div>
@@ -87,6 +142,15 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
+type ProtocolId = "i2c" | "spi" | "canfd" | "wifi";
+type ConnectedDevice = {
+  id: string;
+  name: string;
+  protocol: ProtocolId;
+  summary: string;
+  details: Array<{ label: string; value: string }>;
+};
+
 const MAX_LOG_LINES = 200;
 const PING_INTERVAL_MS = 15000;
 const HEARTBEAT_TIMEOUT_MS = 45000;
@@ -95,11 +159,93 @@ const tabs = [
   { id: "connected-devices", label: "Connected Devices" },
   { id: "settings", label: "Settings" },
 ] as const;
+const connectedDevices: ConnectedDevice[] = [
+  {
+    id: "bme688",
+    name: "BME688 Environmental Sensor",
+    protocol: "i2c",
+    summary: "Air quality and temperature sensor on the sensor bus.",
+    details: [
+      { label: "Address", value: "0x76" },
+      { label: "Bus", value: "I2C0 @ 400 kHz" },
+      { label: "Polling", value: "1 Hz" },
+      { label: "Power", value: "3.3 V" },
+      { label: "Status", value: "Streaming" },
+    ],
+  },
+  {
+    id: "ina260",
+    name: "INA260 Power Monitor",
+    protocol: "i2c",
+    summary: "Rail telemetry for the primary 12 V supply.",
+    details: [
+      { label: "Address", value: "0x40" },
+      { label: "Bus", value: "I2C0 @ 400 kHz" },
+      { label: "Alert Pin", value: "GPIO7" },
+      { label: "Range", value: "0-15 A" },
+      { label: "Status", value: "Online" },
+    ],
+  },
+  {
+    id: "ads131m04",
+    name: "ADS131M04 ADC",
+    protocol: "spi",
+    summary: "High-resolution analog front-end for sensor capture.",
+    details: [
+      { label: "Chip Select", value: "GPIO10" },
+      { label: "SPI Mode", value: "Mode 1" },
+      { label: "Clock", value: "8 MHz" },
+      { label: "DRDY", value: "GPIO6" },
+      { label: "Status", value: "Sampling" },
+    ],
+  },
+  {
+    id: "fram",
+    name: "External FRAM Buffer",
+    protocol: "spi",
+    summary: "Non-volatile event buffer for short outage capture.",
+    details: [
+      { label: "Chip Select", value: "GPIO11" },
+      { label: "SPI Mode", value: "Mode 0" },
+      { label: "Clock", value: "4 MHz" },
+      { label: "Capacity", value: "256 kB" },
+      { label: "Status", value: "Mounted" },
+    ],
+  },
+  {
+    id: "inverter-node",
+    name: "Inverter Telemetry Node",
+    protocol: "canfd",
+    summary: "Powertrain node publishing fast diagnostic frames.",
+    details: [
+      { label: "Arbitration ID", value: "0x221" },
+      { label: "Nominal Rate", value: "500 kbps" },
+      { label: "Data Rate", value: "2 Mbps" },
+      { label: "Last Frame", value: "24 ms ago" },
+      { label: "Status", value: "Healthy" },
+    ],
+  },
+  {
+    id: "service-laptop",
+    name: "Service Laptop",
+    protocol: "wifi",
+    summary: "Maintenance station connected to the local AP.",
+    details: [
+      { label: "IP Address", value: "192.168.13.42" },
+      { label: "MAC Address", value: "AC:DE:48:00:11:9A" },
+      { label: "RSSI", value: "-54 dBm" },
+      { label: "SSID", value: "Vigilant-Lab" },
+      { label: "Status", value: "Connected" },
+    ],
+  },
+];
 type TabId = (typeof tabs)[number]["id"];
 
 const deviceName = ref("Vigilant ESP Test");
 const statusText = ref("System Operational");
 const activeTab = ref<TabId>("console");
+const selectedConnectedDeviceId = ref(connectedDevices[0]?.id ?? "");
+const hoveredConnectedDeviceId = ref<string | null>(null);
 
 const overlayActive = ref(false);
 const proceeding = ref(false);
@@ -117,6 +263,12 @@ const consoleHtml = computed(() =>
   lines.value
     .map((line) => `<span class="log-line ${levelClass(line)}">${escapeHtml(line)}</span>`)
     .join("\n")
+);
+const activeConnectedDevice = computed(
+  () =>
+    connectedDevices.find(
+      (device) => device.id === (hoveredConnectedDeviceId.value ?? selectedConnectedDeviceId.value)
+    ) ?? connectedDevices[0]
 );
 
 function escapeHtml(s: string) {
@@ -161,6 +313,16 @@ function normalizeLogLines(rawLines: string[]): string[] {
 
 function splitAndNormalize(text: string) {
   return normalizeLogLines(text.split(/\r?\n/));
+}
+
+function protocolLabel(protocol: ProtocolId) {
+  if (protocol === "canfd") return "CAN FD";
+  if (protocol === "wifi") return "WiFi";
+  return protocol.toUpperCase();
+}
+
+function protocolPillClass(protocol: ProtocolId) {
+  return `protocol-${protocol}`;
 }
 
 async function loadDeviceInfo() {
@@ -354,6 +516,25 @@ async function proceed() {
 </script>
 
 <style scoped>
+.container,
+.tab,
+.btn-danger,
+.btn-primary,
+.connected-device,
+.protocol-pill,
+.pill,
+.settings-group-title,
+.connected-section-title,
+.connected-device-name,
+.connected-detail-name,
+.status,
+.console-sub,
+.modal,
+.credentials,
+.label {
+  font-family: Inter, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
 .container {
   width: 100%;
   padding: 24px;
@@ -364,6 +545,7 @@ async function proceed() {
 }
 
 h1 {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 2.1rem;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -375,6 +557,7 @@ h1 {
 }
 
 .device-name {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 0.8125rem;
   color: #60a5fa;
   font-weight: 600;
@@ -394,6 +577,7 @@ h1 {
 }
 
 .ws-chip {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -500,6 +684,7 @@ h1 {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   min-height: 0;
   flex: 1;
+  overflow: hidden;
 }
 
 .btn-danger {
@@ -525,6 +710,168 @@ h1 {
 }
 
 .console-panel { display: flex; flex-direction: column; gap: 10px; }
+
+.connected-panel {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 14px;
+  align-content: stretch;
+  padding: 16px;
+}
+
+.connected-list,
+.connected-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid #1f2937;
+  background: rgba(13, 17, 23, 0.78);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.connected-detail {
+  min-height: 0;
+}
+
+.connected-list {
+  align-items: flex-start;
+}
+
+.connected-list-header,
+.connected-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.connected-section-title {
+  font-size: 0.78rem;
+  color: #9ca3af;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.connected-detail-name {
+  color: #e5e7eb;
+  font-size: 0.96rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.connected-device {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: min(100%, 320px);
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #1f2937;
+  background: linear-gradient(180deg, rgba(15, 19, 25, 0.92), rgba(12, 16, 22, 0.9));
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.connected-device:hover,
+.connected-device:focus-visible {
+  border-color: #334155;
+  background: linear-gradient(180deg, rgba(20, 26, 35, 0.96), rgba(14, 19, 26, 0.94));
+  outline: none;
+}
+
+.connected-device.active {
+  border-color: rgba(96, 165, 250, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.08);
+}
+
+.connected-device-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.connected-device-name {
+  color: #e5e7eb;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.protocol-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid #1f2937;
+  white-space: nowrap;
+}
+
+.protocol-i2c {
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.protocol-spi {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.protocol-canfd {
+  color: #facc15;
+  background: rgba(234, 179, 8, 0.12);
+}
+
+.protocol-wifi {
+  color: #f472b6;
+  background: rgba(236, 72, 153, 0.12);
+}
+
+.connected-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.connected-detail-row {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #1f2937;
+  background: rgba(10, 14, 20, 0.62);
+}
+
+.connected-detail-row dt {
+  font-size: 0.68rem;
+  color: #6b7280;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.connected-detail-row dd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  color: #e5e7eb;
+  font-size: 0.84rem;
+  font-weight: 600;
+  margin: 0;
+}
 
 .settings-panel {
   display: flex;
@@ -598,6 +945,7 @@ h1 {
 .pill-error { background: rgba(248, 113, 113, 0.12); color: #f87171; }
 
 .console {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   background: #0d1117;
   border: 1px solid #1f2937;
   border-radius: 8px;
@@ -677,6 +1025,9 @@ h1 {
 
 .label { color: #6b7280; }
 .value { color: #60a5fa; font-weight: 600; }
+.value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
 
 .btn-primary {
   width: 100%;
@@ -733,6 +1084,23 @@ h1 {
 
   .tab {
     padding: 11px 14px 12px;
+  }
+
+  .connected-panel {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    gap: 12px;
+    padding: 14px;
+    overflow-y: auto;
+  }
+
+  .connected-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .connected-list,
+  .connected-detail {
+    overflow: visible;
   }
 
   .console-header {

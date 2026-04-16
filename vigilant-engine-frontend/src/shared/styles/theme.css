@@ -5,7 +5,7 @@
 }
 
 body {
-  font-family: ui-monospace, monospace;
+  font-family: Inter, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   background: radial-gradient(circle at 20% 20%, rgba(96, 165, 250, 0.08), transparent 25%),
     radial-gradient(circle at 80% 0%, rgba(59, 130, 246, 0.06), transparent 22%),
     #0a0e14;
