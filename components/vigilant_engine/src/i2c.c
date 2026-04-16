@@ -16,9 +16,96 @@
 #define I2C_TIMEOUT_MS      50
 
 static const char *TAG = "ve_i2c";
-
-
 static i2c_master_bus_handle_t s_i2c_bus = NULL;
+static uint8_t s_detected_i2c_addresses[16] = {0};
+static size_t s_detected_i2c_count = 0;
+
+static esp_err_t i2c_scan_devices(uint8_t *addresses, size_t max_addresses, size_t *count, bool log_results)
+{
+    if (!s_i2c_bus) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (!count) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    char line[128];
+    size_t found = 0;
+    size_t stored = 0;
+
+    if (log_results) {
+        ESP_LOGI(TAG, "I2C bus scan on SDA=%d SCL=%d", I2C_SDA_IO, I2C_SCL_IO);
+
+        strcpy(line, "    ");
+        for (int i = 0; i < 16; i++) {
+            char tmp[4];
+            snprintf(tmp, sizeof(tmp), "%02X ", i);
+            strncat(line, tmp, sizeof(line) - strlen(line) - 1);
+        }
+        ESP_LOGI(TAG, "%s", line);
+    }
+
+    for (int high = 0; high < 8; high++) {
+        if (log_results) {
+            snprintf(line, sizeof(line), "%02X: ", high << 4);
+        }
+
+        for (int low = 0; low < 16; low++) {
+            uint8_t addr = (high << 4) | low;
+            char cell[4] = "   ";
+
+            if (addr >= 0x03 && addr <= 0x77) {
+                esp_err_t err = i2c_master_probe(s_i2c_bus, addr, I2C_TIMEOUT_MS);
+                if (err == ESP_OK) {
+                    if (addresses && stored < max_addresses) {
+                        addresses[stored++] = addr;
+                    }
+                    found++;
+                    if (log_results) {
+                        snprintf(cell, sizeof(cell), "%02X ", addr);
+                    }
+                } else if (log_results) {
+                    snprintf(cell, sizeof(cell), "-- ");
+                }
+            }
+
+            if (log_results) {
+                strncat(line, cell, sizeof(line) - strlen(line) - 1);
+            }
+        }
+
+        if (log_results) {
+            ESP_LOGI(TAG, "%s", line);
+        }
+    }
+
+    if (log_results) {
+        ESP_LOGI(TAG, "Scan complete, found %u device(s)", (unsigned int)found);
+        if (stored < found) {
+            ESP_LOGW(TAG, "Detected device list truncated to %u entrie(s)", (unsigned int)stored);
+        }
+    }
+
+    *count = stored;
+    return ESP_OK;
+}
+
+static esp_err_t i2c_refresh_detected_devices(bool log_results)
+{
+    size_t detected_count = 0;
+    esp_err_t err = i2c_scan_devices(
+        s_detected_i2c_addresses,
+        sizeof(s_detected_i2c_addresses) / sizeof(s_detected_i2c_addresses[0]),
+        &detected_count,
+        log_results
+    );
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    s_detected_i2c_count = detected_count;
+    return ESP_OK;
+}
 
 esp_err_t i2c_init(void)
 {
@@ -46,45 +133,10 @@ esp_err_t i2c_init(void)
     }
 
     ESP_LOGI(TAG, "Bus initialized successfully");
-    ESP_LOGI(TAG, "I2C bus scan on SDA=%d SCL=%d", I2C_SDA_IO, I2C_SCL_IO);
-
-    char line[128];
-    int found = 0;
-
-    strcpy(line, "    ");
-    for (int i = 0; i < 16; i++) {
-        char tmp[4];
-        snprintf(tmp, sizeof(tmp), "%02X ", i);
-        strncat(line, tmp, sizeof(line) - strlen(line) - 1);
+    err = i2c_refresh_detected_devices(true);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Initial I2C scan failed: %s", esp_err_to_name(err));
     }
-    ESP_LOGI(TAG, "%s", line);
-
-    for (int high = 0; high < 8; high++) {
-        snprintf(line, sizeof(line), "%02X: ", high << 4);
-
-        for (int low = 0; low < 16; low++) {
-            uint8_t addr = (high << 4) | low;
-            char cell[4];
-
-            if (addr < 0x03 || addr > 0x77) {
-                snprintf(cell, sizeof(cell), "   ");
-            } else {
-                err = i2c_master_probe(s_i2c_bus, addr, I2C_TIMEOUT_MS);
-                if (err == ESP_OK) {
-                    snprintf(cell, sizeof(cell), "%02X ", addr);
-                    found++;
-                } else {
-                    snprintf(cell, sizeof(cell), "-- ");
-                }
-            }
-
-            strncat(line, cell, sizeof(line) - strlen(line) - 1);
-        }
-
-        ESP_LOGI(TAG, "%s", line);
-    }
-
-    ESP_LOGI(TAG, "Scan complete, found %d device(s)", found);
 
     return ESP_OK;
 }
@@ -193,6 +245,28 @@ esp_err_t i2c_whoami_check(VigilantI2CDevice *device)
     return ESP_OK;
 }
 
+esp_err_t i2c_get_detected_devices(uint8_t *addresses, size_t max_addresses, size_t *count)
+{
+    if (!count) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!s_i2c_bus) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    size_t copied_count = s_detected_i2c_count;
+    if (copied_count > max_addresses) {
+        copied_count = max_addresses;
+    }
+
+    if (addresses && copied_count > 0) {
+        memcpy(addresses, s_detected_i2c_addresses, copied_count * sizeof(s_detected_i2c_addresses[0]));
+    }
+
+    *count = copied_count;
+    return ESP_OK;
+}
+
 void i2c_deinit(void)
 {
     if (s_i2c_bus) {
@@ -203,5 +277,7 @@ void i2c_deinit(void)
         }
 
         s_i2c_bus = NULL;
+        memset(s_detected_i2c_addresses, 0, sizeof(s_detected_i2c_addresses));
+        s_detected_i2c_count = 0;
     }
 }

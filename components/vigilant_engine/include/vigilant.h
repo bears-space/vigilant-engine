@@ -33,8 +33,10 @@ typedef struct {
     uint8_t sda_io;
     uint8_t scl_io;
     uint32_t frequency_hz;
-    uint8_t device_count;
-    VigilantI2CDevice devices[8]; // fixed-size array for simplicity; adjust as needed
+    uint8_t added_device_count;
+    VigilantI2CDevice added_devices[8]; // fixed-size array for simplicity; adjust as needed
+    uint8_t detected_device_count;
+    uint8_t detected_devices[16]; // 7-bit addresses detected on the bus
 } VigilantI2cInfo;
 
 esp_err_t vigilant_init(VigilantConfig VgConfig);

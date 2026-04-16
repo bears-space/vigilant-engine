@@ -336,8 +336,20 @@ esp_err_t vigilant_get_i2cinfo(VigilantI2cInfo *info)
     info->sda_io = CONFIG_VE_I2C_SDA_IO;
     info->scl_io = CONFIG_VE_I2C_SCL_IO;
     info->frequency_hz = CONFIG_VE_I2C_FREQ_HZ;
-    info->device_count = (uint8_t)s_i2c_device_count;
-    memcpy(info->devices, s_i2c_devices, sizeof(s_i2c_devices[0]) * s_i2c_device_count);
+    info->added_device_count = (uint8_t)s_i2c_device_count;
+    memcpy(info->added_devices, s_i2c_devices, sizeof(s_i2c_devices[0]) * s_i2c_device_count);
+
+    size_t detected_count = 0;
+    esp_err_t detected_err = i2c_get_detected_devices(
+        info->detected_devices,
+        sizeof(info->detected_devices) / sizeof(info->detected_devices[0]),
+        &detected_count
+    );
+    if (detected_err != ESP_OK) {
+        return detected_err;
+    }
+
+    info->detected_device_count = (uint8_t)detected_count;
 #endif
 
     return ESP_OK;

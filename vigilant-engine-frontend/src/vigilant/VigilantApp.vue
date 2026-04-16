@@ -45,33 +45,71 @@
       <section v-else-if="activeTab === 'connected-devices'" class="tab-panel connected-panel">
         <div class="connected-list">
           <div class="connected-list-header">
-            <div class="connected-section-title">Detected Devices</div>
+            <div class="connected-section-title">Connected Devices</div>
           </div>
 
           <template v-if="connectedDevices.length">
-            <button
-              v-for="device in connectedDevices"
-              :key="device.id"
-              type="button"
-              class="connected-device"
-              :class="{ active: activeConnectedDevice?.id === device.id }"
-              :aria-pressed="selectedConnectedDeviceId === device.id"
-              @click="selectedConnectedDeviceId = device.id"
-              @mouseenter="hoveredConnectedDeviceId = device.id"
-              @mouseleave="hoveredConnectedDeviceId = null"
-              @focus="hoveredConnectedDeviceId = device.id"
-              @blur="hoveredConnectedDeviceId = null"
-            >
-              <div class="connected-device-copy">
-                <div class="connected-device-name">{{ device.name }}</div>
-              </div>
-              <span
-                class="protocol-pill"
-                :class="protocolPillClass(device.protocol)"
+            <div v-if="addedConnectedDevices.length" class="connected-list-group">
+              <div class="connected-subsection-title">Added Devices</div>
+
+              <button
+                v-for="device in addedConnectedDevices"
+                :key="device.id"
+                type="button"
+                class="connected-device"
+                :class="{ active: activeConnectedDevice?.id === device.id }"
+                :aria-pressed="selectedConnectedDeviceId === device.id"
+                @click="selectedConnectedDeviceId = device.id"
+                @mouseenter="hoveredConnectedDeviceId = device.id"
+                @mouseleave="hoveredConnectedDeviceId = null"
+                @focus="hoveredConnectedDeviceId = device.id"
+                @blur="hoveredConnectedDeviceId = null"
               >
-                {{ protocolLabel(device.protocol) }}
-              </span>
-            </button>
+                <div class="connected-device-copy">
+                  <div class="connected-device-name">{{ device.name }}</div>
+                </div>
+                <div class="connected-device-badges">
+                  <span class="device-state-pill device-state-added">Added</span>
+                  <span
+                    class="protocol-pill"
+                    :class="protocolPillClass(device.protocol)"
+                  >
+                    {{ protocolLabel(device.protocol) }}
+                  </span>
+                </div>
+              </button>
+            </div>
+
+            <div v-if="detectedOnlyConnectedDevices.length" class="connected-list-group">
+              <div class="connected-subsection-title">Detected Devices</div>
+
+              <button
+                v-for="device in detectedOnlyConnectedDevices"
+                :key="device.id"
+                type="button"
+                class="connected-device"
+                :class="{ active: activeConnectedDevice?.id === device.id }"
+                :aria-pressed="selectedConnectedDeviceId === device.id"
+                @click="selectedConnectedDeviceId = device.id"
+                @mouseenter="hoveredConnectedDeviceId = device.id"
+                @mouseleave="hoveredConnectedDeviceId = null"
+                @focus="hoveredConnectedDeviceId = device.id"
+                @blur="hoveredConnectedDeviceId = null"
+              >
+                <div class="connected-device-copy">
+                  <div class="connected-device-name">{{ device.name }}</div>
+                </div>
+                <div class="connected-device-badges">
+                  <span class="device-state-pill device-state-detected">Detected</span>
+                  <span
+                    class="protocol-pill"
+                    :class="protocolPillClass(device.protocol)"
+                  >
+                    {{ protocolLabel(device.protocol) }}
+                  </span>
+                </div>
+              </button>
+            </div>
           </template>
 
           <div v-else class="connected-empty">
@@ -82,12 +120,24 @@
         <div v-if="activeConnectedDevice" class="connected-detail">
           <div class="connected-detail-header">
             <div class="connected-detail-name">{{ activeConnectedDevice.name }}</div>
-            <span
-              class="protocol-pill"
-              :class="protocolPillClass(activeConnectedDevice.protocol)"
-            >
-              {{ protocolLabel(activeConnectedDevice.protocol) }}
-            </span>
+            <div class="connected-device-badges">
+              <span
+                class="device-state-pill"
+                :class="
+                  activeConnectedDevice.state === 'added'
+                    ? 'device-state-added'
+                    : 'device-state-detected'
+                "
+              >
+                {{ activeConnectedDevice.state === "added" ? "Added" : "Detected" }}
+              </span>
+              <span
+                class="protocol-pill"
+                :class="protocolPillClass(activeConnectedDevice.protocol)"
+              >
+                {{ protocolLabel(activeConnectedDevice.protocol) }}
+              </span>
+            </div>
           </div>
 
           <dl class="connected-detail-grid">
@@ -156,13 +206,15 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 type ProtocolId = "i2c" | "spi" | "canfd" | "wifi";
+type DeviceState = "added" | "detected";
 type ConnectedDevice = {
   id: string;
   name: string;
   protocol: ProtocolId;
+  state: DeviceState;
   details: Array<{ label: string; value: string }>;
 };
-type I2cApiDevice = {
+type I2cAddedApiDevice = {
   name?: unknown;
   address?: unknown;
   address_hex?: unknown;
@@ -171,12 +223,18 @@ type I2cApiDevice = {
   expected_whoami?: unknown;
   expected_whoami_hex?: unknown;
 };
+type I2cDetectedApiDevice = {
+  name?: unknown;
+  address?: unknown;
+  address_hex?: unknown;
+};
 type I2cInfoResponse = {
   enabled?: unknown;
   sda_io?: unknown;
   scl_io?: unknown;
   frequency_hz?: unknown;
-  devices?: unknown;
+  added_devices?: unknown;
+  detected_devices?: unknown;
 };
 
 const MAX_LOG_LINES = 200;
@@ -212,6 +270,12 @@ const consoleHtml = computed(() =>
   lines.value
     .map((line) => `<span class="log-line ${levelClass(line)}">${escapeHtml(line)}</span>`)
     .join("\n")
+);
+const addedConnectedDevices = computed(() =>
+  connectedDevices.value.filter((device) => device.state === "added")
+);
+const detectedOnlyConnectedDevices = computed(() =>
+  connectedDevices.value.filter((device) => device.state === "detected")
 );
 const activeConnectedDevice = computed(
   () =>
@@ -305,24 +369,28 @@ function formatI2cBusLabel(response: I2cInfoResponse) {
 }
 
 function mapI2cDevices(response: I2cInfoResponse): ConnectedDevice[] {
-  if (response.enabled !== true || !Array.isArray(response.devices)) {
+  if (response.enabled !== true) {
     return [];
   }
 
   const busLabel = formatI2cBusLabel(response);
+  const addedDevices = Array.isArray(response.added_devices) ? response.added_devices : [];
+  const detectedDevices = Array.isArray(response.detected_devices) ? response.detected_devices : [];
+  const addedAddresses = new Set<string>();
 
-  return response.devices.flatMap((rawDevice) => {
+  const mappedAddedDevices = addedDevices.flatMap((rawDevice) => {
     if (!rawDevice || typeof rawDevice !== "object") {
       return [];
     }
 
-    const device = rawDevice as I2cApiDevice;
+    const device = rawDevice as I2cAddedApiDevice;
     const address = asNumber(device.address);
     if (address === null) {
       return [];
     }
 
     const addressHex = asString(device.address_hex) ?? formatHexByte(address);
+    addedAddresses.add(addressHex);
     const whoamiReg = asNumber(device.whoami_reg);
     const expectedWhoami = asNumber(device.expected_whoami);
 
@@ -331,15 +399,50 @@ function mapI2cDevices(response: I2cInfoResponse): ConnectedDevice[] {
         id: `i2c-${addressHex.toLowerCase()}`,
         name: asString(device.name) ?? `I2C Device ${addressHex}`,
         protocol: "i2c",
+        state: "added",
         details: [
           { label: "Address", value: addressHex },
           { label: "Bus", value: busLabel },
+          { label: "Registration", value: "Added through Vigilant API" },
           { label: "WHOAMI Reg", value: asString(device.whoami_reg_hex) ?? formatHexByte(whoamiReg) },
           { label: "Expected WHOAMI", value: asString(device.expected_whoami_hex) ?? formatHexByte(expectedWhoami) },
         ],
       },
     ];
   });
+
+  const mappedDetectedDevices = detectedDevices.flatMap((rawDevice) => {
+    if (!rawDevice || typeof rawDevice !== "object") {
+      return [];
+    }
+
+    const device = rawDevice as I2cDetectedApiDevice;
+    const address = asNumber(device.address);
+    if (address === null) {
+      return [];
+    }
+
+    const addressHex = asString(device.address_hex) ?? formatHexByte(address);
+    if (addedAddresses.has(addressHex)) {
+      return [];
+    }
+
+    return [
+      {
+        id: `i2c-detected-${addressHex.toLowerCase()}`,
+        name: asString(device.name) ?? `Detected I2C Device ${addressHex}`,
+        protocol: "i2c",
+        state: "detected",
+        details: [
+          { label: "Address", value: addressHex },
+          { label: "Bus", value: busLabel },
+          { label: "Registration", value: "Detected on bus, not added" },
+        ],
+      },
+    ];
+  });
+
+  return [...mappedAddedDevices, ...mappedDetectedDevices];
 }
 
 async function loadDeviceInfo() {
@@ -791,6 +894,21 @@ h1 {
   align-items: flex-start;
 }
 
+.connected-list-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.connected-subsection-title {
+  color: #6b7280;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .connected-empty {
   color: #6b7280;
   font-size: 0.84rem;
@@ -861,6 +979,15 @@ h1 {
   min-width: 0;
 }
 
+.connected-device-badges {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
 .connected-device-name {
   color: #e5e7eb;
   font-size: 0.88rem;
@@ -880,6 +1007,30 @@ h1 {
   text-transform: uppercase;
   border: 1px solid #1f2937;
   white-space: nowrap;
+}
+
+.device-state-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid #1f2937;
+  white-space: nowrap;
+}
+
+.device-state-added {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.device-state-detected {
+  color: #facc15;
+  background: rgba(234, 179, 8, 0.12);
 }
 
 .protocol-i2c {
