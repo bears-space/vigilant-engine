@@ -11,11 +11,6 @@
         </div>
         <div class="status">{{ statusText }}</div>
       </div>
-      <div class="actions">
-        <button class="btn-danger" @click="showRecovery">
-          ⚠️ Reboot to Recovery
-        </button>
-      </div>
     </header>
 
     <main class="workspace">
@@ -45,6 +40,15 @@
           </div>
         </div>
         <pre ref="consoleEl" class="console" v-html="consoleHtml"></pre>
+      </section>
+
+      <section v-else-if="activeTab === 'settings'" class="tab-panel settings-panel">
+        <div class="settings-group">
+          <div class="settings-group-title">Device Settings</div>
+          <button class="btn-danger settings-action" @click="showRecovery">
+            ⚠️ Reboot to Recovery
+          </button>
+        </div>
       </section>
 
       <section v-else class="tab-panel tab-panel-empty"></section>
@@ -434,8 +438,6 @@ h1 {
 
 .title-block { display: flex; flex-direction: column; gap: 4px; }
 
-.actions { display: flex; gap: 12px; }
-
 .workspace {
   display: flex;
   flex-direction: column;
@@ -523,6 +525,34 @@ h1 {
 }
 
 .console-panel { display: flex; flex-direction: column; gap: 10px; }
+
+.settings-panel {
+  display: flex;
+  align-items: flex-start;
+}
+
+.settings-group {
+  width: min(100%, 420px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 10px;
+  border: 1px solid #1f2937;
+  background: rgba(13, 17, 23, 0.78);
+}
+
+.settings-group-title {
+  font-size: 0.82rem;
+  color: #9ca3af;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settings-action {
+  max-width: 320px;
+}
 
 .tab-panel-empty {
   background:
@@ -695,10 +725,6 @@ h1 {
 
   .topbar {
     flex-direction: column;
-  }
-
-  .actions {
-    width: 100%;
   }
 
   .tabs {
