@@ -1,3 +1,4 @@
+[![Frontend and Firmware CI](https://github.com/bears-space/vigilant-engine/actions/workflows/esp-build.yml/badge.svg)](https://github.com/bears-space/vigilant-engine/actions/workflows/esp-build.yml) [![Docs](https://github.com/bears-space/vigilant-engine/actions/workflows/docs.yml/badge.svg)](https://github.com/bears-space/vigilant-engine/actions/workflows/docs.yml)
 # Vigilant Engine
 
 Vigilant Engine is the framework on which all ESP-based nodes of the **STARSTREAK** project are built.  
