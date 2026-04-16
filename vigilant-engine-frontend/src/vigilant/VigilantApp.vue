@@ -439,22 +439,28 @@ h1 {
 .workspace {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 0;
   flex: 1;
   min-height: 0;
 }
 
 .tabs {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
+  align-items: flex-end;
+  padding: 0 14px;
+  margin-bottom: -1px;
+  position: relative;
+  z-index: 2;
 }
 
 .tab {
-  padding: 11px 16px;
-  border-radius: 999px;
+  padding: 12px 18px 13px;
+  border-radius: 12px 12px 0 0;
   border: 1px solid #1f2937;
-  background: rgba(15, 19, 25, 0.82);
+  border-bottom-color: #11161d;
+  background: linear-gradient(180deg, rgba(24, 31, 42, 0.96), rgba(16, 22, 30, 0.92));
   color: #9ca3af;
   font: inherit;
   font-size: 0.78rem;
@@ -463,26 +469,32 @@ h1 {
   text-transform: uppercase;
   cursor: pointer;
   transition: all 0.2s ease;
+  position: relative;
 }
 
 .tab:hover {
   color: #d1d5db;
   border-color: #334155;
-  transform: translateY(-1px);
+  border-bottom-color: #11161d;
+  background: linear-gradient(180deg, rgba(29, 37, 49, 0.98), rgba(18, 24, 33, 0.94));
 }
 
 .tab.active {
   color: #60a5fa;
-  background: rgba(59, 130, 246, 0.12);
+  background: linear-gradient(145deg, #141922, #0f1319);
   border-color: rgba(96, 165, 250, 0.4);
-  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.08);
+  border-bottom-color: #141922;
+  box-shadow:
+    inset 0 1px 0 rgba(96, 165, 250, 0.14),
+    0 -1px 0 rgba(96, 165, 250, 0.08);
+  z-index: 3;
 }
 
 .tab-panel {
   background: linear-gradient(145deg, #141922, #0f1319);
   border: 1px solid #1f2937;
-  border-radius: 10px;
-  padding: 20px;
+  border-radius: 12px;
+  padding: 24px 20px 20px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   min-height: 0;
   flex: 1;
@@ -687,6 +699,14 @@ h1 {
 
   .actions {
     width: 100%;
+  }
+
+  .tabs {
+    padding: 0 10px;
+  }
+
+  .tab {
+    padding: 11px 14px 12px;
   }
 
   .console-header {
