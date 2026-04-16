@@ -13,9 +13,13 @@ body {
   min-height: 100vh;
   display: flex;
   align-items: stretch;
-  justify-content: center;
   padding: 16px;
   overflow: hidden;
+}
+
+#app {
+  width: 100%;
+  min-height: calc(100vh - 32px);
 }
 
 @keyframes fadeIn {

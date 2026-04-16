@@ -18,8 +18,21 @@
       </div>
     </header>
 
-    <main class="layout">
-      <section class="console-panel">
+    <main class="workspace">
+      <nav class="tabs" aria-label="Primary sections">
+        <button
+          v-for="tab in tabs"
+          :key="tab.id"
+          type="button"
+          class="tab"
+          :class="{ active: activeTab === tab.id }"
+          @click="activeTab = tab.id"
+        >
+          {{ tab.label }}
+        </button>
+      </nav>
+
+      <section v-if="activeTab === 'console'" class="tab-panel console-panel">
         <div class="console-header">
           <div>
             <div class="console-title">System Console</div>
@@ -34,12 +47,7 @@
         <pre ref="consoleEl" class="console" v-html="consoleHtml"></pre>
       </section>
 
-      <aside class="sidebar">
-        <h3>System Controls</h3>
-        <button class="btn-danger" @click="showRecovery">
-          ⚠️ Reboot to Recovery
-        </button>
-      </aside>
+      <section v-else class="tab-panel tab-panel-empty"></section>
     </main>
 
     <div class="overlay" :class="{ active: overlayActive }">
@@ -73,14 +81,21 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 const MAX_LOG_LINES = 200;
 const PING_INTERVAL_MS = 15000;
 const HEARTBEAT_TIMEOUT_MS = 45000;
+const tabs = [
+  { id: "console", label: "Console" },
+  { id: "connected-devices", label: "Connected Devices" },
+  { id: "settings", label: "Settings" },
+] as const;
+type TabId = (typeof tabs)[number]["id"];
 
 const deviceName = ref("Vigilant ESP Test");
 const statusText = ref("System Operational");
+const activeTab = ref<TabId>("console");
 
 const overlayActive = ref(false);
 const proceeding = ref(false);
@@ -276,6 +291,13 @@ function connectLogStream() {
   });
 }
 
+watch(activeTab, async (tabId) => {
+  if (tabId === "console") {
+    await nextTick();
+    scrollConsoleToBottom();
+  }
+});
+
 onMounted(() => {
   connectLogStream();
   loadDeviceInfo();
@@ -329,7 +351,6 @@ async function proceed() {
 
 <style scoped>
 .container {
-  max-width: 1280px;
   width: 100%;
   padding: 24px;
   display: flex;
@@ -415,31 +436,56 @@ h1 {
 
 .actions { display: flex; gap: 12px; }
 
-.layout {
-  display: grid;
-  grid-template-columns: 1fr minmax(240px, 320px);
-  gap: 20px;
-  align-items: stretch;
+.workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   flex: 1;
   min-height: 0;
 }
 
-.console-panel,
-.sidebar {
+.tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tab {
+  padding: 11px 16px;
+  border-radius: 999px;
+  border: 1px solid #1f2937;
+  background: rgba(15, 19, 25, 0.82);
+  color: #9ca3af;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab:hover {
+  color: #d1d5db;
+  border-color: #334155;
+  transform: translateY(-1px);
+}
+
+.tab.active {
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(96, 165, 250, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.08);
+}
+
+.tab-panel {
   background: linear-gradient(145deg, #141922, #0f1319);
   border: 1px solid #1f2937;
   border-radius: 10px;
   padding: 20px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-}
-
-.sidebar h3 {
-  font-size: 0.85rem;
-  color: #9ca3af;
-  margin-bottom: 16px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 600;
+  min-height: 0;
+  flex: 1;
 }
 
 .btn-danger {
@@ -465,6 +511,18 @@ h1 {
 }
 
 .console-panel { display: flex; flex-direction: column; gap: 10px; }
+
+.tab-panel-empty {
+  background:
+    linear-gradient(145deg, rgba(20, 25, 34, 0.98), rgba(15, 19, 25, 0.96)),
+    repeating-linear-gradient(
+      135deg,
+      rgba(59, 130, 246, 0.03),
+      rgba(59, 130, 246, 0.03) 18px,
+      transparent 18px,
+      transparent 36px
+    );
+}
 
 .console-header {
   display: flex;
@@ -504,8 +562,8 @@ h1 {
   padding: 14px;
   font-size: 0.84rem;
   line-height: 1.05;
-  min-height: 220px;
-  max-height: 60vh;
+  min-height: 0;
+  height: 100%;
   color: #e5e7eb;
   overflow-y: auto;
   overflow-x: auto;
@@ -616,5 +674,24 @@ h1 {
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   margin-right: 8px;
+}
+
+@media (max-width: 840px) {
+  .container {
+    padding: 20px 16px;
+  }
+
+  .topbar {
+    flex-direction: column;
+  }
+
+  .actions {
+    width: 100%;
+  }
+
+  .console-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 </style>
