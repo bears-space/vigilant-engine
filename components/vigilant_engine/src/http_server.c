@@ -241,8 +241,8 @@ static esp_err_t i2cinfo_get_handler(httpd_req_t *req)
     }
 
     httpd_resp_set_type(req, "application/json");
-    size_t payload_capacity = 256
-        + ((size_t)info.added_device_count * 160)
+    size_t payload_capacity = 256 // Calculates a size for the json object, for malloc later
+        + ((size_t)info.added_device_count * 160) // Added devices contain more information in the json than detected devices.
         + ((size_t)info.detected_device_count * 96);
     char *payload = malloc(payload_capacity);
     if (!payload) {
