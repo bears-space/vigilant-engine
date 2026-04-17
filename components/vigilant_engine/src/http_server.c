@@ -231,6 +231,119 @@ static const httpd_uri_t info_uri = {
     .user_ctx  = NULL,
 };
 
+static esp_err_t i2cinfo_get_handler(httpd_req_t *req)
+{
+    VigilantI2cInfo info = {0};
+    esp_err_t err = vigilant_get_i2cinfo(&info);
+    if (err != ESP_OK) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to fetch i2c info");
+        return err;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    size_t payload_capacity = 256 // Calculates a size for the json object, for malloc later
+        + ((size_t)info.added_device_count * 160) // Added devices contain more information in the json than detected devices.
+        + ((size_t)info.detected_device_count * 96);
+    char *payload = malloc(payload_capacity);
+    if (!payload) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "No memory for i2c info");
+        return ESP_ERR_NO_MEM;
+    }
+
+    size_t offset = 0;
+    int written = snprintf(
+        payload + offset,
+        payload_capacity - offset,
+        "{\"enabled\":%s,\"sda_io\":%u,\"scl_io\":%u,\"frequency_hz\":%" PRIu32 ",\"added_device_count\":%u,\"detected_device_count\":%u,\"added_devices\":[",
+        info.enabled ? "true" : "false",
+        (unsigned int)info.sda_io,
+        (unsigned int)info.scl_io,
+        info.frequency_hz,
+        (unsigned int)info.added_device_count,
+        (unsigned int)info.detected_device_count
+    );
+
+    if (written < 0 || written >= (int)(payload_capacity - offset)) {
+        free(payload);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Info too large");
+        return ESP_FAIL;
+    }
+    offset += (size_t)written;
+
+    for (uint8_t i = 0; i < info.added_device_count; ++i) {
+        const VigilantI2CDevice *device = &info.added_devices[i];
+        written = snprintf(
+            payload + offset,
+            payload_capacity - offset,
+            "%s{\"name\":\"I2C Device 0x%02X\",\"address\":%u,\"address_hex\":\"0x%02X\",\"whoami_reg\":%u,\"whoami_reg_hex\":\"0x%02X\",\"expected_whoami\":%u,\"expected_whoami_hex\":\"0x%02X\"}",
+            i == 0 ? "" : ",",
+            (unsigned int)device->address,
+            (unsigned int)device->address,
+            (unsigned int)device->address,
+            (unsigned int)device->whoami_reg,
+            (unsigned int)device->whoami_reg,
+            (unsigned int)device->expected_whoami,
+            (unsigned int)device->expected_whoami
+        );
+
+        if (written < 0 || written >= (int)(payload_capacity - offset)) {
+            free(payload);
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Info too large");
+            return ESP_FAIL;
+        }
+        offset += (size_t)written;
+    }
+
+    written = snprintf(payload + offset, payload_capacity - offset, "],\"detected_devices\":[");
+    if (written < 0 || written >= (int)(payload_capacity - offset)) {
+        free(payload);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Info too large");
+        return ESP_FAIL;
+    }
+    offset += (size_t)written;
+
+    for (uint8_t i = 0; i < info.detected_device_count; ++i) {
+        uint8_t address = info.detected_devices[i];
+        written = snprintf(
+            payload + offset,
+            payload_capacity - offset,
+            "%s{\"name\":\"Detected I2C Device 0x%02X\",\"address\":%u,\"address_hex\":\"0x%02X\"}",
+            i == 0 ? "" : ",",
+            (unsigned int)address,
+            (unsigned int)address,
+            (unsigned int)address
+        );
+
+        if (written < 0 || written >= (int)(payload_capacity - offset)) {
+            free(payload);
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Info too large");
+            return ESP_FAIL;
+        }
+        offset += (size_t)written;
+    }
+
+    written = snprintf(payload + offset, payload_capacity - offset, "]}");
+    if (written < 0 || written >= (int)(payload_capacity - offset)) {
+        free(payload);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Info too large");
+        return ESP_FAIL;
+    }
+    offset += (size_t)written;
+
+    httpd_resp_send(req, payload, (ssize_t)offset);
+    free(payload);
+    return ESP_OK;
+}
+
+static const httpd_uri_t i2cinfo_uri = {
+    .uri       = "/i2cinfo",
+    .method    = HTTP_GET,
+    .handler   = i2cinfo_get_handler,
+    .user_ctx  = NULL,
+};
+
+
+
 esp_err_t http_404_error_handler(httpd_req_t *req, httpd_err_code_t err)
 {
     if (strcmp("/hello", req->uri) == 0) {
@@ -294,6 +407,7 @@ static httpd_handle_t start_webserver_internal(void)
         httpd_register_uri_handler(server, &ctrl);
         httpd_register_uri_handler(server, &any);
         httpd_register_uri_handler(server, &info_uri);
+        httpd_register_uri_handler(server, &i2cinfo_uri);
         websocket_register_handlers(server);
 
         // OTA-Handler registrieren

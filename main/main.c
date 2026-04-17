@@ -33,6 +33,5 @@ void app_main(void)
         uint8_t value = 0;
         ESP_ERROR_CHECK(vigilant_i2c_read_reg8(&device, 0x27, &value)); // Reading a register (e.g. control register)
         ESP_LOGI("app_main i2c test", "reg 0x27 value: 0x%02X", value);
-        ESP_ERROR_CHECK(vigilant_i2c_remove_device(&device)); // Removing a device
     }
 }
