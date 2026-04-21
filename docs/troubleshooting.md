@@ -6,6 +6,8 @@ You are not in an ESP-IDF exported shell.
 
 - Windows: open ESP-IDF PowerShell
 - Linux/macOS: source `export.sh`
+- In VS Code, prefer the ESP-IDF extension over generic `CMake Tools`
+- If `CMake Tools` logs an include failure for `/tools/cmake/project.cmake`, it launched without the ESP-IDF environment
 
 ## `BIN not found`
 
