@@ -265,6 +265,7 @@ const reconnectAttempts = ref(0);
 const pingTimer = ref<number | null>(null);
 const lastHeartbeat = ref<number>(0);
 const connectionOk = ref(false);
+let consoleScrollQueued = false;
 
 const consoleHtml = computed(() =>
   lines.value
@@ -491,10 +492,24 @@ const scrollConsoleToBottom = () => {
   }
 };
 
+function scheduleConsoleScroll() {
+  if (consoleScrollQueued) return;
+  consoleScrollQueued = true;
+  nextTick().then(() => {
+    consoleScrollQueued = false;
+    scrollConsoleToBottom();
+  });
+}
+
+function appendLogLines(newLines: string[]) {
+  if (!newLines.length) return;
+  lines.value = [...lines.value, ...newLines].slice(-MAX_LOG_LINES);
+  scheduleConsoleScroll();
+}
+
 async function pushLine(msg: string) {
-  lines.value = [...lines.value, msg].slice(-MAX_LOG_LINES);
+  appendLogLines([msg]);
   await nextTick();
-  scrollConsoleToBottom();
 }
 
 async function log(msg: string) {
@@ -514,15 +529,13 @@ function handleLogPayload(raw: unknown) {
       payload.lines.filter((line): line is string => typeof line === "string")
     );
     lines.value = normalized.slice(-MAX_LOG_LINES);
-    nextTick().then(scrollConsoleToBottom);
+    scheduleConsoleScroll();
     return;
   }
 
   if (payload.type === "log" && typeof payload.line === "string") {
     const merged = splitAndNormalize(payload.line);
-    for (const l of merged) {
-      pushLine(l);
-    }
+    appendLogLines(merged);
   }
 }
 
@@ -533,7 +546,9 @@ function clearPingTimer() {
   }
 }
 
-function scheduleReconnect() {
+function scheduleReconnect(ws: WebSocket) {
+  if (socket.value !== ws) return;
+
   if (reconnectHandle.value !== null) return;
   socket.value = null;
   connectionOk.value = false;
@@ -564,11 +579,21 @@ function connectLogStream() {
   socket.value = ws;
 
   ws.addEventListener("open", () => {
+    if (socket.value !== ws) {
+      try { ws.close(); } catch (_) {}
+      return;
+    }
+
     reconnectAttempts.value = 0;
     lastHeartbeat.value = performance.now();
     connectionOk.value = true;
 
-    pingTimer.value = window.setInterval(() => {
+    const timer = window.setInterval(() => {
+      if (socket.value !== ws) {
+        clearInterval(timer);
+        return;
+      }
+
       if (ws.readyState !== WebSocket.OPEN) {
         return;
       }
@@ -582,9 +607,11 @@ function connectLogStream() {
 
       try { ws.send('{"type":"ping"}'); } catch (_) {}
     }, PING_INTERVAL_MS);
+    pingTimer.value = timer;
   });
 
   ws.addEventListener("message", (event) => {
+    if (socket.value !== ws) return;
     if (typeof event.data !== "string") return;
     lastHeartbeat.value = performance.now();
     connectionOk.value = true;
@@ -595,10 +622,11 @@ function connectLogStream() {
     }
   });
 
-  ws.addEventListener("close", scheduleReconnect);
+  ws.addEventListener("close", () => scheduleReconnect(ws));
   ws.addEventListener("error", () => {
+    if (socket.value !== ws) return;
     connectionOk.value = false;
-    scheduleReconnect();
+    scheduleReconnect(ws);
     try { ws.close(); } catch (_) {}
   });
 }

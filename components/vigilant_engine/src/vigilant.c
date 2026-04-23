@@ -206,6 +206,7 @@ static esp_err_t wifi_apply_mode(NW_MODE mode,
     ESP_ERROR_CHECK(esp_wifi_start());
 
     if (mode == NW_MODE_STA || mode == NW_MODE_APSTA) {
+        ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
         ESP_ERROR_CHECK(esp_wifi_connect()); // AP-only: NICHT connecten
     }
 

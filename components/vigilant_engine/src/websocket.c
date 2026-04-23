@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -17,15 +18,19 @@ static const char *TAG_WS = "ws";
 #define LOG_HISTORY_LINES 200
 #define LOG_LINE_MAX      256
 #define MAX_WS_CLIENTS    8
+#define MAX_PENDING_SENDS_PER_CLIENT 3
 
 typedef struct {
     int fd;
     bool active;
+    uint32_t generation;
+    uint8_t pending_sends;
 } ws_client_t;
 
 typedef struct {
     httpd_handle_t hd;
     int fd;
+    uint32_t generation;
     char *payload;
     size_t len;
 } ws_send_arg_t;
@@ -37,6 +42,7 @@ static char s_log_lines[LOG_HISTORY_LINES][LOG_LINE_MAX];
 static size_t s_log_head = 0;   // next write position
 static size_t s_log_count = 0;  // number of valid lines
 static SemaphoreHandle_t s_ws_mutex = NULL;
+static uint32_t s_next_generation = 1;
 
 static vprintf_like_t s_orig_vprintf = NULL;
 
@@ -53,6 +59,15 @@ static bool ws_client_is_connected(int fd)
     return httpd_ws_get_fd_info(s_server_handle, fd) == HTTPD_WS_CLIENT_WEBSOCKET;
 }
 
+static uint32_t next_generation(void)
+{
+    uint32_t generation = s_next_generation++;
+    if (s_next_generation == 0) {
+        s_next_generation = 1;
+    }
+    return generation;
+}
+
 static void ensure_mutex(void)
 {
     if (!s_ws_mutex) {
@@ -60,16 +75,19 @@ static void ensure_mutex(void)
     }
 }
 
-static void ws_clients_add(int fd)
+static uint32_t ws_clients_add(int fd)
 {
     ensure_mutex();
-    if (!s_ws_mutex) return;
+    if (!s_ws_mutex) return 0;
 
     xSemaphoreTake(s_ws_mutex, portMAX_DELAY);
     for (int i = 0; i < MAX_WS_CLIENTS; ++i) {
         if (s_clients[i].active && s_clients[i].fd == fd) {
+            s_clients[i].generation = next_generation();
+            s_clients[i].pending_sends = 0;
+            uint32_t generation = s_clients[i].generation;
             xSemaphoreGive(s_ws_mutex);
-            return;
+            return generation;
         }
     }
 
@@ -77,26 +95,111 @@ static void ws_clients_add(int fd)
         if (!s_clients[i].active) {
             s_clients[i].fd = fd;
             s_clients[i].active = true;
+            s_clients[i].generation = next_generation();
+            s_clients[i].pending_sends = 0;
+            uint32_t generation = s_clients[i].generation;
             xSemaphoreGive(s_ws_mutex);
-            return;
+            return generation;
         }
     }
     xSemaphoreGive(s_ws_mutex);
 
     ESP_LOGW(TAG_WS, "WS client table full, dropping fd=%d", fd);
+    return 0;
+}
+
+static bool ws_clients_remove_generation(int fd, uint32_t generation)
+{
+    if (!s_ws_mutex) return false;
+    bool removed = false;
+    xSemaphoreTake(s_ws_mutex, portMAX_DELAY);
+    for (int i = 0; i < MAX_WS_CLIENTS; ++i) {
+        if (s_clients[i].active && s_clients[i].fd == fd &&
+            (generation == 0 || s_clients[i].generation == generation)) {
+            s_clients[i].active = false;
+            s_clients[i].fd = -1;
+            s_clients[i].generation = 0;
+            s_clients[i].pending_sends = 0;
+            removed = true;
+        }
+    }
+    xSemaphoreGive(s_ws_mutex);
+    return removed;
 }
 
 static void ws_clients_remove(int fd)
 {
-    if (!s_ws_mutex) return;
+    (void)ws_clients_remove_generation(fd, 0);
+}
+
+static bool ws_clients_mark_send_queued(int fd, uint32_t *generation)
+{
+    ensure_mutex();
+    if (!s_ws_mutex) return false;
+
+    bool queued = false;
     xSemaphoreTake(s_ws_mutex, portMAX_DELAY);
     for (int i = 0; i < MAX_WS_CLIENTS; ++i) {
         if (s_clients[i].active && s_clients[i].fd == fd) {
-            s_clients[i].active = false;
-            s_clients[i].fd = -1;
+            if (s_clients[i].pending_sends < MAX_PENDING_SENDS_PER_CLIENT) {
+                s_clients[i].pending_sends++;
+                *generation = s_clients[i].generation;
+                queued = true;
+            }
+            break;
         }
     }
     xSemaphoreGive(s_ws_mutex);
+    return queued;
+}
+
+static void ws_clients_mark_send_done(int fd, uint32_t generation)
+{
+    if (!s_ws_mutex) return;
+
+    xSemaphoreTake(s_ws_mutex, portMAX_DELAY);
+    for (int i = 0; i < MAX_WS_CLIENTS; ++i) {
+        if (s_clients[i].active && s_clients[i].fd == fd &&
+            s_clients[i].generation == generation) {
+            if (s_clients[i].pending_sends > 0) {
+                s_clients[i].pending_sends--;
+            }
+            break;
+        }
+    }
+    xSemaphoreGive(s_ws_mutex);
+}
+
+static bool ws_client_generation_is_current(int fd, uint32_t generation)
+{
+    if (!s_ws_mutex) return false;
+
+    bool current = false;
+    xSemaphoreTake(s_ws_mutex, portMAX_DELAY);
+    for (int i = 0; i < MAX_WS_CLIENTS; ++i) {
+        if (s_clients[i].active && s_clients[i].fd == fd &&
+            s_clients[i].generation == generation) {
+            current = true;
+            break;
+        }
+    }
+    xSemaphoreGive(s_ws_mutex);
+    return current;
+}
+
+static void ws_trigger_close_if_current(int fd, uint32_t generation)
+{
+    if (ws_clients_remove_generation(fd, generation) && s_server_handle) {
+        httpd_sess_trigger_close(s_server_handle, fd);
+    }
+}
+
+static bool should_stream_log_line(const char *line)
+{
+    // Avoid feeding HTTPD/WebSocket transport errors back into the WebSocket
+    // that just failed. They still print on UART and remain in the history.
+    return !strstr(line, " httpd_txrx:") &&
+           !strstr(line, " httpd_ws:");
 }
 
 static void append_log_line(const char *line)
@@ -120,8 +223,10 @@ static void ws_send_text_async(void *arg)
     ws_send_arg_t *a = (ws_send_arg_t *)arg;
     if (!a) return;
 
-    if (!ws_client_is_connected(a->fd)) {
-        ws_clients_remove(a->fd);
+    if (!ws_client_generation_is_current(a->fd, a->generation) ||
+        !ws_client_is_connected(a->fd)) {
+        ws_clients_mark_send_done(a->fd, a->generation);
+        ws_trigger_close_if_current(a->fd, a->generation);
         free(a->payload);
         free(a);
         return;
@@ -136,8 +241,9 @@ static void ws_send_text_async(void *arg)
     };
 
     esp_err_t ret = httpd_ws_send_frame_async(a->hd, a->fd, &frame);
+    ws_clients_mark_send_done(a->fd, a->generation);
     if (ret != ESP_OK) {
-        ws_clients_remove(a->fd);
+        ws_trigger_close_if_current(a->fd, a->generation);
     }
 
     free(a->payload);
@@ -150,16 +256,23 @@ static esp_err_t ws_queue_send_text(int fd, const char *text)
         return ESP_ERR_INVALID_STATE;
     }
 
+    uint32_t generation = 0;
+    if (!ws_clients_mark_send_queued(fd, &generation)) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
     ws_send_arg_t *arg = (ws_send_arg_t *)malloc(sizeof(ws_send_arg_t));
     char *dup = strdup(text);
     if (!arg || !dup) {
         free(arg);
         free(dup);
+        ws_clients_mark_send_done(fd, generation);
         return ESP_ERR_NO_MEM;
     }
 
     arg->hd = s_server_handle;
     arg->fd = fd;
+    arg->generation = generation;
     arg->payload = dup;
     arg->len = strlen(dup);
 
@@ -167,7 +280,7 @@ static esp_err_t ws_queue_send_text(int fd, const char *text)
     if (ret != ESP_OK) {
         free(arg->payload);
         free(arg);
-        ws_clients_remove(fd);
+        ws_clients_mark_send_done(fd, generation);
     }
     return ret;
 }
@@ -222,7 +335,9 @@ static int websocket_log_vprintf(const char *fmt, va_list ap)
     }
 
     append_log_line(line);
-    broadcast_log_line(line);
+    if (should_stream_log_line(line)) {
+        broadcast_log_line(line);
+    }
 
     if (s_orig_vprintf) {
         return s_orig_vprintf(fmt, ap);
@@ -283,7 +398,11 @@ static esp_err_t websocket_handler(httpd_req_t *req)
 
     // Handshake call
     if (req->method == HTTP_GET) {
-        ws_clients_add(fd);
+        uint32_t generation = ws_clients_add(fd);
+        if (generation == 0) {
+            httpd_sess_trigger_close(req->handle, fd);
+            return ESP_FAIL;
+        }
         send_log_history(fd);
         ESP_LOGI(TAG_WS, "WebSocket client connected: fd=%d", fd);
         return ESP_OK;
@@ -370,6 +489,11 @@ void websocket_init_log_capture(void)
 
     s_orig_vprintf = esp_log_set_vprintf(websocket_log_vprintf);
     ensure_mutex();
+}
+
+void websocket_client_closed(int fd)
+{
+    ws_clients_remove(fd);
 }
 
 /**

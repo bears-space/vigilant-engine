@@ -37,3 +37,8 @@ CONFIG_HTTPD_SERVER_EVENT_POST_TIMEOUT=2000
 #To enable logging while using the timer
 #Weirdly also fixes the serial time out?
 CONFIG_FREERTOS_TIMER_TASK_STACK_DEPTH=4096
+
+#
+# LWIP
+#
+CONFIG_LWIP_MAX_SOCKETS=13
