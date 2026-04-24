@@ -132,7 +132,8 @@ static void ws_clients_remove(int fd)
 
 static bool ws_clients_mark_send_queued(int fd, uint32_t *generation)
 {
-    ensure_mutex();
+    SemaphoreHandle_t mutex = ensure_mutex();
+    if (!mutex) return false;
     if (!s_ws_mutex) return false;
 
     bool queued = false;
