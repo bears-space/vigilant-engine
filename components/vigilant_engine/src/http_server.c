@@ -30,7 +30,7 @@ static const char *TAG = "http_server";
 static httpd_handle_t s_server = NULL;   // unser globaler Server-Handle
 
 #if defined(CONFIG_LWIP_MAX_SOCKETS) && CONFIG_LWIP_MAX_SOCKETS >= 13
-#define VE_HTTPD_MAX_OPEN_SOCKETS 10
+#define VE_HTTPD_MAX_OPEN_SOCKETS 10 // Increase max open sockets if lwip socket amount is increased
 #else
 #define VE_HTTPD_MAX_OPEN_SOCKETS 7
 #endif
