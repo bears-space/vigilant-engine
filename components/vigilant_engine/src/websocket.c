@@ -62,17 +62,15 @@ static bool ws_client_is_connected(int fd)
 static uint32_t next_generation(void)
 {
     uint32_t generation = s_next_generation++;
-    if (s_next_generation == 0) {
-        s_next_generation = 1;
-    }
     return generation;
 }
 
-static void ensure_mutex(void)
+static SemaphoreHandle_t ensure_mutex(void)
 {
     if (!s_ws_mutex) {
         s_ws_mutex = xSemaphoreCreateMutex();
     }
+    return s_ws_mutex; // returns NULL on failure, but we check for that in callers
 }
 
 static uint32_t ws_clients_add(int fd)

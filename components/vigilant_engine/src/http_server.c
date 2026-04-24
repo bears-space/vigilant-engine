@@ -401,7 +401,6 @@ static const httpd_uri_t ctrl = {
 
 static void close_socket_with_ws_cleanup(httpd_handle_t hd, int sockfd)
 {
-    (void)hd;
     websocket_client_closed(sockfd);
     close(sockfd);
 }
