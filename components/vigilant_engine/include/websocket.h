@@ -17,6 +17,9 @@ void websocket_init_log_capture(void);
 // to connected clients.
 esp_err_t websocket_register_handlers(httpd_handle_t server);
 
+// Removes the socket from the websocket client table when HTTPD closes it.
+void websocket_client_closed(int fd);
+
 #ifdef __cplusplus
 }
 #endif

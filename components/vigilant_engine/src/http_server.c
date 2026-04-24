@@ -14,6 +14,7 @@
 #include "esp_event.h"
 #include "esp_netif.h"
 #include "esp_tls_crypto.h"
+#include "sdkconfig.h"
 
 #include "ota_http.h"
 #include "vigilant.h"
@@ -27,6 +28,12 @@
 static const char *TAG = "http_server";
 
 static httpd_handle_t s_server = NULL;   // unser globaler Server-Handle
+
+#if defined(CONFIG_LWIP_MAX_SOCKETS) && CONFIG_LWIP_MAX_SOCKETS >= 13
+#define VE_HTTPD_MAX_OPEN_SOCKETS 10 // Increase max open sockets if lwip socket amount is increased
+#else
+#define VE_HTTPD_MAX_OPEN_SOCKETS 7
+#endif
 
 static int hex_nibble(char c)
 {
@@ -392,14 +399,28 @@ static const httpd_uri_t ctrl = {
     .user_ctx  = NULL
 };
 
+static void close_socket_with_ws_cleanup(httpd_handle_t hd, int sockfd)
+{
+    websocket_client_closed(sockfd);
+    close(sockfd);
+}
+
 static httpd_handle_t start_webserver_internal(void)
 {
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.max_uri_handlers = 32; // Fixes issue #28: ota_http: Failed to register Vigilant Dashboard GET handler (ESP_ERR_HTTPD_HANDLERS_FULL)
+    config.max_open_sockets = VE_HTTPD_MAX_OPEN_SOCKETS;
+    config.backlog_conn = 8;
     config.lru_purge_enable = true;
+    config.keep_alive_enable = true;
+    config.keep_alive_idle = 30;
+    config.keep_alive_interval = 5;
+    config.keep_alive_count = 3;
+    config.close_fn = close_socket_with_ws_cleanup;
 
-    ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
+    ESP_LOGI(TAG, "Starting server on port: '%d' with %d open sockets",
+             config.server_port, config.max_open_sockets);
     if (httpd_start(&server, &config) == ESP_OK) {
         ESP_LOGI(TAG, "Registering URI handlers");
         httpd_register_uri_handler(server, &hello);
@@ -443,17 +464,6 @@ esp_err_t http_server_stop(void)
 }
 
 #if !CONFIG_IDF_TARGET_LINUX
-static void disconnect_handler(void* arg, esp_event_base_t event_base,
-                               int32_t event_id, void* event_data)
-{
-    (void)arg;
-    (void)event_base;
-    (void)event_id;
-    (void)event_data;
-
-    http_server_stop();
-}
-
 static void connect_handler(void* arg, esp_event_base_t event_base,
                             int32_t event_id, void* event_data)
 {
