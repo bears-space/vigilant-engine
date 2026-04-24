@@ -1,5 +1,3 @@
-# The following lines of boilerplate have to be in your project's
-# CMakeLists in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.16)
 
 if(NOT DEFINED ENV{IDF_PATH} OR "$ENV{IDF_PATH}" STREQUAL "")
@@ -15,24 +13,19 @@ endif()
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 # "Trim" the build. Include the minimal set of components, main, and anything it depends on.
 idf_build_set_property(MINIMAL_BUILD ON)
-project(vigilant-engine-recovery)
 
 # ---- Web UI (Vite) build integration ----
 option(VE_BUILD_WEB "Build Vite UI before compiling firmware" ON)
 
+get_filename_component(VE_REPO_ROOT "${CMAKE_SOURCE_DIR}/.." ABSOLUTE)
+set(VE_NODE_ROOT_DIR "${VE_REPO_ROOT}")
+set(VE_WEB_DIR "${VE_REPO_ROOT}/vigilant-engine-frontend")
+set(VE_RECOVERY_HTML "${VE_REPO_ROOT}/build/static/recovery/index.html")
+
+idf_build_set_property(VE_BUILD_WEB "${VE_BUILD_WEB}")
+idf_build_set_property(VE_RECOVERY_HTML "${VE_RECOVERY_HTML}")
+
 if(VE_BUILD_WEB)
-  find_program(NPM_EXECUTABLE npm)
-  if(NOT NPM_EXECUTABLE)
-    message(FATAL_ERROR "npm not found. Install Node.js/npm or set VE_BUILD_WEB=OFF.")
-  endif()
-
-  get_filename_component(VE_REPO_ROOT "${CMAKE_SOURCE_DIR}/.." ABSOLUTE)
-  set(VE_NODE_ROOT_DIR "${VE_REPO_ROOT}")
-  set(VE_WEB_DIR "${VE_REPO_ROOT}/vigilant-engine-frontend")
-
-  set(VE_OUT_RECOVERY "${VE_REPO_ROOT}/build/static/recovery/index.html")
-  set(VE_WEB_STAMP "${CMAKE_BINARY_DIR}/ve_web_build.stamp")
-
   file(GLOB_RECURSE VE_WEB_SOURCES CONFIGURE_DEPENDS
     "${VE_NODE_ROOT_DIR}/package.json"
     "${VE_NODE_ROOT_DIR}/package-lock.json"
@@ -48,20 +41,26 @@ if(VE_BUILD_WEB)
     "${VE_WEB_DIR}/src/*"
   )
 
+  find_program(NPM_EXECUTABLE npm)
+  if(NOT NPM_EXECUTABLE)
+    message(FATAL_ERROR "npm not found. Install Node.js/npm or set VE_BUILD_WEB=OFF.")
+  endif()
+
   add_custom_command(
-    OUTPUT "${VE_WEB_STAMP}"
+    OUTPUT "${VE_RECOVERY_HTML}"
 
     COMMAND "${CMAKE_COMMAND}" -E chdir "${VE_NODE_ROOT_DIR}" "${NPM_EXECUTABLE}" install
     COMMAND "${CMAKE_COMMAND}" -E chdir "${VE_WEB_DIR}" "${NPM_EXECUTABLE}" install
     COMMAND "${CMAKE_COMMAND}" -E chdir "${VE_WEB_DIR}" "${NPM_EXECUTABLE}" run build:recovery
 
-    COMMAND "${CMAKE_COMMAND}" -E touch "${VE_WEB_STAMP}"
-
     DEPENDS ${VE_WEB_SOURCES}
-    BYPRODUCTS "${VE_OUT_RECOVERY}"
     COMMENT "Building Vite UI (recovery)"
     VERBATIM
   )
 
-  add_custom_target(ve_web ALL DEPENDS "${VE_WEB_STAMP}")
+  add_custom_target(ve_web ALL DEPENDS "${VE_RECOVERY_HTML}")
 endif()
+
+# Keep project() after ve_web so the main component can depend on the generated
+# build/static/recovery/index.html before ESP-IDF creates the embed rule.
+project(vigilant-engine-recovery)

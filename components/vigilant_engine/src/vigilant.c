@@ -24,11 +24,18 @@
 #include "websocket.h"
 
 static const char *TAG = "vigilant";
+#if CONFIG_VE_ENABLE_I2C
+static const size_t MAX_I2C_INFO_DEVICES = 8;
+#endif
 
 static esp_netif_t *s_netif_sta = NULL;
 static esp_netif_t *s_netif_ap  = NULL;
 static VigilantConfig s_cfg = {0};
 static TimerHandle_t sta_reconnect_timer;
+#if CONFIG_VE_ENABLE_I2C
+static VigilantI2CDevice s_i2c_devices[8] = {0};
+static size_t s_i2c_device_count = 0;
+#endif
 
 static wifi_config_t sta_cfg = {
     .sta = {
@@ -49,6 +56,61 @@ static wifi_config_t ap_cfg = {
         .authmode = WIFI_AUTH_WPA2_PSK 
     }
 };
+
+#if CONFIG_VE_ENABLE_I2C
+static int registered_i2c_device_index(const VigilantI2CDevice *device)
+{
+    if (!device) {
+        return -1;
+    }
+
+    for (size_t i = 0; i < s_i2c_device_count; ++i) {
+        if (s_i2c_devices[i].address == device->address &&
+            s_i2c_devices[i].whoami_reg == device->whoami_reg &&
+            s_i2c_devices[i].expected_whoami == device->expected_whoami) {
+            return (int)i;
+        }
+    }
+
+    return -1;
+}
+
+static void sync_registered_i2c_device(const VigilantI2CDevice *device)
+{
+    if (!device) {
+        return;
+    }
+
+    int existing_index = registered_i2c_device_index(device);
+    if (existing_index >= 0) {
+        s_i2c_devices[existing_index] = *device;
+        return;
+    }
+
+    if (s_i2c_device_count >= MAX_I2C_INFO_DEVICES) {
+        ESP_LOGW(TAG, "I2C device registry full; device 0x%02X will not be exposed via /i2cinfo",
+                 (unsigned int)device->address);
+        return;
+    }
+
+    s_i2c_devices[s_i2c_device_count++] = *device;
+}
+
+static void remove_registered_i2c_device(const VigilantI2CDevice *device)
+{
+    int existing_index = registered_i2c_device_index(device);
+    if (existing_index < 0) {
+        return;
+    }
+
+    for (size_t i = (size_t)existing_index + 1; i < s_i2c_device_count; ++i) {
+        s_i2c_devices[i - 1] = s_i2c_devices[i];
+    }
+
+    s_i2c_device_count--;
+    memset(&s_i2c_devices[s_i2c_device_count], 0, sizeof(s_i2c_devices[0]));
+}
+#endif
 
 static void ap_cfg_fixup(wifi_config_t *cfg)
 {
@@ -144,6 +206,7 @@ static esp_err_t wifi_apply_mode(NW_MODE mode,
     ESP_ERROR_CHECK(esp_wifi_start());
 
     if (mode == NW_MODE_STA || mode == NW_MODE_APSTA) {
+        ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
         ESP_ERROR_CHECK(esp_wifi_connect()); // AP-only: NICHT connecten
     }
 
@@ -267,10 +330,48 @@ esp_err_t vigilant_get_info(VigilantInfo *info)
     return ESP_OK;
 }
 
+esp_err_t vigilant_get_i2cinfo(VigilantI2cInfo *info)
+{
+    if (!info) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    memset(info, 0, sizeof(*info));
+
+#if CONFIG_VE_ENABLE_I2C
+    info->enabled = true;
+    info->sda_io = CONFIG_VE_I2C_SDA_IO;
+    info->scl_io = CONFIG_VE_I2C_SCL_IO;
+    info->frequency_hz = CONFIG_VE_I2C_FREQ_HZ;
+    info->added_device_count = (uint8_t)s_i2c_device_count;
+    memcpy(info->added_devices, s_i2c_devices, sizeof(s_i2c_devices[0]) * s_i2c_device_count);
+
+    size_t detected_count = 0;
+    esp_err_t detected_err = i2c_get_detected_devices(
+        info->detected_devices,
+        sizeof(info->detected_devices) / sizeof(info->detected_devices[0]),
+        &detected_count
+    );
+    if (detected_err != ESP_OK) {
+        return detected_err;
+    }
+
+    info->detected_device_count = (uint8_t)detected_count;
+#else
+    info->enabled = false;
+#endif
+
+    return ESP_OK;
+}
+
 esp_err_t vigilant_i2c_add_device(VigilantI2CDevice *device)
 {
 #if CONFIG_VE_ENABLE_I2C
-    return i2c_add_device(device);
+    esp_err_t err = i2c_add_device(device);
+    if (err == ESP_OK) {
+        sync_registered_i2c_device(device);
+    }
+    return err;
 #else
     (void)device;
     return ESP_ERR_NOT_SUPPORTED;
@@ -280,7 +381,11 @@ esp_err_t vigilant_i2c_add_device(VigilantI2CDevice *device)
 esp_err_t vigilant_i2c_remove_device(VigilantI2CDevice *device)
 {
 #if CONFIG_VE_ENABLE_I2C
-    return i2c_remove_device(device);
+    esp_err_t err = i2c_remove_device(device);
+    if (err == ESP_OK) {
+        remove_registered_i2c_device(device);
+    }
+    return err;
 #else
     (void)device;
     return ESP_ERR_NOT_SUPPORTED;

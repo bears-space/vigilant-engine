@@ -11,15 +11,23 @@
         </div>
         <div class="status">{{ statusText }}</div>
       </div>
-      <div class="actions">
-        <button class="btn-danger" @click="showRecovery">
-          ⚠️ Reboot to Recovery
-        </button>
-      </div>
     </header>
 
-    <main class="layout">
-      <section class="console-panel">
+    <main class="workspace">
+      <nav class="tabs" aria-label="Primary sections">
+        <button
+          v-for="tab in tabs"
+          :key="tab.id"
+          type="button"
+          class="tab"
+          :class="{ active: activeTab === tab.id }"
+          @click="activeTab = tab.id"
+        >
+          {{ tab.label }}
+        </button>
+      </nav>
+
+      <section v-if="activeTab === 'console'" class="tab-panel console-panel">
         <div class="console-header">
           <div>
             <div class="console-title">System Console</div>
@@ -34,12 +42,134 @@
         <pre ref="consoleEl" class="console" v-html="consoleHtml"></pre>
       </section>
 
-      <aside class="sidebar">
-        <h3>System Controls</h3>
-        <button class="btn-danger" @click="showRecovery">
-          ⚠️ Reboot to Recovery
-        </button>
-      </aside>
+      <section v-else-if="activeTab === 'connected-devices'" class="tab-panel connected-panel">
+        <div class="connected-list">
+          <div class="connected-list-header">
+            <div class="connected-section-title">Connected Devices</div>
+          </div>
+
+          <template v-if="connectedDevices.length">
+            <div v-if="addedConnectedDevices.length" class="connected-list-group">
+              <div class="connected-subsection-title">Added Devices</div>
+
+              <button
+                v-for="device in addedConnectedDevices"
+                :key="device.id"
+                type="button"
+                class="connected-device"
+                :class="{ active: activeConnectedDevice?.id === device.id }"
+                :aria-pressed="selectedConnectedDeviceId === device.id"
+                @click="selectedConnectedDeviceId = device.id"
+                @mouseenter="hoveredConnectedDeviceId = device.id"
+                @mouseleave="hoveredConnectedDeviceId = null"
+                @focus="hoveredConnectedDeviceId = device.id"
+                @blur="hoveredConnectedDeviceId = null"
+              >
+                <div class="connected-device-copy">
+                  <div class="connected-device-name">{{ device.name }}</div>
+                </div>
+                <div class="connected-device-badges">
+                  <span class="device-state-pill device-state-added">Added</span>
+                  <span
+                    class="protocol-pill"
+                    :class="protocolPillClass(device.protocol)"
+                  >
+                    {{ protocolLabel(device.protocol) }}
+                  </span>
+                </div>
+              </button>
+            </div>
+
+            <div v-if="detectedOnlyConnectedDevices.length" class="connected-list-group">
+              <div class="connected-subsection-title">Detected Devices</div>
+
+              <button
+                v-for="device in detectedOnlyConnectedDevices"
+                :key="device.id"
+                type="button"
+                class="connected-device"
+                :class="{ active: activeConnectedDevice?.id === device.id }"
+                :aria-pressed="selectedConnectedDeviceId === device.id"
+                @click="selectedConnectedDeviceId = device.id"
+                @mouseenter="hoveredConnectedDeviceId = device.id"
+                @mouseleave="hoveredConnectedDeviceId = null"
+                @focus="hoveredConnectedDeviceId = device.id"
+                @blur="hoveredConnectedDeviceId = null"
+              >
+                <div class="connected-device-copy">
+                  <div class="connected-device-name">{{ device.name }}</div>
+                </div>
+                <div class="connected-device-badges">
+                  <span class="device-state-pill device-state-detected">Detected</span>
+                  <span
+                    class="protocol-pill"
+                    :class="protocolPillClass(device.protocol)"
+                  >
+                    {{ protocolLabel(device.protocol) }}
+                  </span>
+                </div>
+              </button>
+            </div>
+          </template>
+
+          <div v-else class="connected-empty">
+            No connected devices reported.
+          </div>
+        </div>
+
+        <div v-if="activeConnectedDevice" class="connected-detail">
+          <div class="connected-detail-header">
+            <div class="connected-detail-name">{{ activeConnectedDevice.name }}</div>
+            <div class="connected-device-badges">
+              <span
+                class="device-state-pill"
+                :class="
+                  activeConnectedDevice.state === 'added'
+                    ? 'device-state-added'
+                    : 'device-state-detected'
+                "
+              >
+                {{ activeConnectedDevice.state === "added" ? "Added" : "Detected" }}
+              </span>
+              <span
+                class="protocol-pill"
+                :class="protocolPillClass(activeConnectedDevice.protocol)"
+              >
+                {{ protocolLabel(activeConnectedDevice.protocol) }}
+              </span>
+            </div>
+          </div>
+
+          <dl class="connected-detail-grid">
+            <div
+              v-for="detail in activeConnectedDevice.details"
+              :key="detail.label"
+              class="connected-detail-row"
+            >
+              <dt>{{ detail.label }}</dt>
+              <dd>{{ detail.value }}</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div v-else class="connected-detail connected-empty-panel">
+          <div class="connected-section-title">Device Details</div>
+          <div class="connected-empty">
+            No I2C devices are currently available from `/i2cinfo`.
+          </div>
+        </div>
+      </section>
+
+      <section v-else-if="activeTab === 'settings'" class="tab-panel settings-panel">
+        <div class="settings-group">
+          <div class="settings-group-title">Device Settings</div>
+          <button class="btn-danger settings-action" @click="showRecovery">
+            ⚠️ Reboot to Recovery
+          </button>
+        </div>
+      </section>
+
+      <section v-else class="tab-panel tab-panel-empty"></section>
     </main>
 
     <div class="overlay" :class="{ active: overlayActive }">
@@ -73,14 +203,56 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+
+type ProtocolId = "i2c" | "spi" | "canfd" | "wifi";
+type DeviceState = "added" | "detected";
+type ConnectedDevice = {
+  id: string;
+  name: string;
+  protocol: ProtocolId;
+  state: DeviceState;
+  details: Array<{ label: string; value: string }>;
+};
+type I2cAddedApiDevice = {
+  name?: unknown;
+  address?: unknown;
+  address_hex?: unknown;
+  whoami_reg?: unknown;
+  whoami_reg_hex?: unknown;
+  expected_whoami?: unknown;
+  expected_whoami_hex?: unknown;
+};
+type I2cDetectedApiDevice = {
+  name?: unknown;
+  address?: unknown;
+  address_hex?: unknown;
+};
+type I2cInfoResponse = {
+  enabled?: unknown;
+  sda_io?: unknown;
+  scl_io?: unknown;
+  frequency_hz?: unknown;
+  added_devices?: unknown;
+  detected_devices?: unknown;
+};
 
 const MAX_LOG_LINES = 200;
 const PING_INTERVAL_MS = 15000;
 const HEARTBEAT_TIMEOUT_MS = 45000;
+const tabs = [
+  { id: "console", label: "Console" },
+  { id: "connected-devices", label: "Connected Devices" },
+  { id: "settings", label: "Settings" },
+] as const;
+type TabId = (typeof tabs)[number]["id"];
 
 const deviceName = ref("Vigilant ESP Test");
 const statusText = ref("System Operational");
+const activeTab = ref<TabId>("console");
+const connectedDevices = ref<ConnectedDevice[]>([]);
+const selectedConnectedDeviceId = ref("");
+const hoveredConnectedDeviceId = ref<string | null>(null);
 
 const overlayActive = ref(false);
 const proceeding = ref(false);
@@ -93,11 +265,24 @@ const reconnectAttempts = ref(0);
 const pingTimer = ref<number | null>(null);
 const lastHeartbeat = ref<number>(0);
 const connectionOk = ref(false);
+let consoleScrollQueued = false;
 
 const consoleHtml = computed(() =>
   lines.value
     .map((line) => `<span class="log-line ${levelClass(line)}">${escapeHtml(line)}</span>`)
     .join("\n")
+);
+const addedConnectedDevices = computed(() =>
+  connectedDevices.value.filter((device) => device.state === "added")
+);
+const detectedOnlyConnectedDevices = computed(() =>
+  connectedDevices.value.filter((device) => device.state === "detected")
+);
+const activeConnectedDevice = computed(
+  () =>
+    connectedDevices.value.find(
+      (device) => device.id === (hoveredConnectedDeviceId.value ?? selectedConnectedDeviceId.value)
+    ) ?? connectedDevices.value[0] ?? null
 );
 
 function escapeHtml(s: string) {
@@ -144,10 +329,126 @@ function splitAndNormalize(text: string) {
   return normalizeLogLines(text.split(/\r?\n/));
 }
 
+function protocolLabel(protocol: ProtocolId) {
+  if (protocol === "canfd") return "CAN FD";
+  if (protocol === "wifi") return "WiFi";
+  return protocol.toUpperCase();
+}
+
+function protocolPillClass(protocol: ProtocolId) {
+  return `protocol-${protocol}`;
+}
+
+function asString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function asNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function formatHexByte(value: number | null) {
+  if (value === null) return "n/a";
+  return `0x${value.toString(16).toUpperCase().padStart(2, "0")}`;
+}
+
+function formatI2cBusLabel(response: I2cInfoResponse) {
+  const scl = asNumber(response.scl_io);
+  const sda = asNumber(response.sda_io);
+  const frequencyHz = asNumber(response.frequency_hz);
+  const busParts = ["I2C0"];
+
+  if (frequencyHz !== null) {
+    busParts.push(`@ ${Math.round(frequencyHz / 1000)} kHz`);
+  }
+
+  if (scl !== null && sda !== null) {
+    busParts.push(`SCL ${scl} / SDA ${sda}`);
+  }
+
+  return busParts.join(" ");
+}
+
+function mapI2cDevices(response: I2cInfoResponse): ConnectedDevice[] {
+  if (response.enabled !== true) {
+    return [];
+  }
+
+  const busLabel = formatI2cBusLabel(response);
+  const addedDevices = Array.isArray(response.added_devices) ? response.added_devices : [];
+  const detectedDevices = Array.isArray(response.detected_devices) ? response.detected_devices : [];
+  const addedAddresses = new Set<string>();
+
+  const mappedAddedDevices = addedDevices.flatMap((rawDevice) => {
+    if (!rawDevice || typeof rawDevice !== "object") {
+      return [];
+    }
+
+    const device = rawDevice as I2cAddedApiDevice;
+    const address = asNumber(device.address);
+    if (address === null) {
+      return [];
+    }
+
+    const addressHex = asString(device.address_hex) ?? formatHexByte(address);
+    addedAddresses.add(addressHex);
+    const whoamiReg = asNumber(device.whoami_reg);
+    const expectedWhoami = asNumber(device.expected_whoami);
+
+    return [
+      {
+        id: `i2c-${addressHex.toLowerCase()}`,
+        name: asString(device.name) ?? `I2C Device ${addressHex}`,
+        protocol: "i2c",
+        state: "added",
+        details: [
+          { label: "Address", value: addressHex },
+          { label: "Bus", value: busLabel },
+          { label: "Registration", value: "Added through Vigilant API" },
+          { label: "WHOAMI Reg", value: asString(device.whoami_reg_hex) ?? formatHexByte(whoamiReg) },
+          { label: "Expected WHOAMI", value: asString(device.expected_whoami_hex) ?? formatHexByte(expectedWhoami) },
+        ],
+      },
+    ];
+  });
+
+  const mappedDetectedDevices = detectedDevices.flatMap((rawDevice) => {
+    if (!rawDevice || typeof rawDevice !== "object") {
+      return [];
+    }
+
+    const device = rawDevice as I2cDetectedApiDevice;
+    const address = asNumber(device.address);
+    if (address === null) {
+      return [];
+    }
+
+    const addressHex = asString(device.address_hex) ?? formatHexByte(address);
+    if (addedAddresses.has(addressHex)) {
+      return [];
+    }
+
+    return [
+      {
+        id: `i2c-detected-${addressHex.toLowerCase()}`,
+        name: asString(device.name) ?? `Detected I2C Device ${addressHex}`,
+        protocol: "i2c",
+        state: "detected",
+        details: [
+          { label: "Address", value: addressHex },
+          { label: "Bus", value: busLabel },
+          { label: "Registration", value: "Detected on bus, not added" },
+        ],
+      },
+    ];
+  });
+
+  return [...mappedAddedDevices, ...mappedDetectedDevices];
+}
+
 async function loadDeviceInfo() {
-  const INFO_URL = "http://192.168.13.234/info";
   try {
-    const res = await fetch(INFO_URL, { cache: "no-cache" });
+    const res = await fetch("/info", { cache: "no-cache" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (typeof data?.name === "string" && data.name.trim()) {
@@ -158,16 +459,57 @@ async function loadDeviceInfo() {
   }
 }
 
+async function loadConnectedDevices() {
+  try {
+    const res = await fetch("/i2cinfo", { cache: "no-cache" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data = (await res.json()) as I2cInfoResponse;
+    const devices = mapI2cDevices(data);
+
+    connectedDevices.value = devices;
+    hoveredConnectedDeviceId.value = null;
+
+    if (!devices.length) {
+      selectedConnectedDeviceId.value = "";
+      return;
+    }
+
+    if (!devices.some((device) => device.id === selectedConnectedDeviceId.value)) {
+      selectedConnectedDeviceId.value = devices[0].id;
+    }
+  } catch (err) {
+    connectedDevices.value = [];
+    selectedConnectedDeviceId.value = "";
+    hoveredConnectedDeviceId.value = null;
+    console.warn("Failed to load connected devices", err);
+  }
+}
+
 const scrollConsoleToBottom = () => {
   if (consoleEl.value) {
     consoleEl.value.scrollTop = consoleEl.value.scrollHeight;
   }
 };
 
+function scheduleConsoleScroll() {
+  if (consoleScrollQueued) return;
+  consoleScrollQueued = true;
+  nextTick().then(() => {
+    consoleScrollQueued = false;
+    scrollConsoleToBottom();
+  });
+}
+
+function appendLogLines(newLines: string[]) {
+  if (!newLines.length) return;
+  lines.value = [...lines.value, ...newLines].slice(-MAX_LOG_LINES);
+  scheduleConsoleScroll();
+}
+
 async function pushLine(msg: string) {
-  lines.value = [...lines.value, msg].slice(-MAX_LOG_LINES);
+  appendLogLines([msg]);
   await nextTick();
-  scrollConsoleToBottom();
 }
 
 async function log(msg: string) {
@@ -187,15 +529,13 @@ function handleLogPayload(raw: unknown) {
       payload.lines.filter((line): line is string => typeof line === "string")
     );
     lines.value = normalized.slice(-MAX_LOG_LINES);
-    nextTick().then(scrollConsoleToBottom);
+    scheduleConsoleScroll();
     return;
   }
 
   if (payload.type === "log" && typeof payload.line === "string") {
     const merged = splitAndNormalize(payload.line);
-    for (const l of merged) {
-      pushLine(l);
-    }
+    appendLogLines(merged);
   }
 }
 
@@ -206,7 +546,9 @@ function clearPingTimer() {
   }
 }
 
-function scheduleReconnect() {
+function scheduleReconnect(ws: WebSocket) {
+  if (socket.value !== ws) return;
+
   if (reconnectHandle.value !== null) return;
   socket.value = null;
   connectionOk.value = false;
@@ -237,11 +579,21 @@ function connectLogStream() {
   socket.value = ws;
 
   ws.addEventListener("open", () => {
+    if (socket.value !== ws) {
+      try { ws.close(); } catch (_) {}
+      return;
+    }
+
     reconnectAttempts.value = 0;
     lastHeartbeat.value = performance.now();
     connectionOk.value = true;
 
-    pingTimer.value = window.setInterval(() => {
+    const timer = window.setInterval(() => {
+      if (socket.value !== ws) {
+        clearInterval(timer);
+        return;
+      }
+
       if (ws.readyState !== WebSocket.OPEN) {
         return;
       }
@@ -255,9 +607,11 @@ function connectLogStream() {
 
       try { ws.send('{"type":"ping"}'); } catch (_) {}
     }, PING_INTERVAL_MS);
+    pingTimer.value = timer;
   });
 
   ws.addEventListener("message", (event) => {
+    if (socket.value !== ws) return;
     if (typeof event.data !== "string") return;
     lastHeartbeat.value = performance.now();
     connectionOk.value = true;
@@ -268,17 +622,30 @@ function connectLogStream() {
     }
   });
 
-  ws.addEventListener("close", scheduleReconnect);
+  ws.addEventListener("close", () => scheduleReconnect(ws));
   ws.addEventListener("error", () => {
+    if (socket.value !== ws) return;
     connectionOk.value = false;
-    scheduleReconnect();
+    scheduleReconnect(ws);
     try { ws.close(); } catch (_) {}
   });
 }
 
+watch(activeTab, async (tabId) => {
+  if (tabId === "console") {
+    await nextTick();
+    scrollConsoleToBottom();
+  }
+
+  if (tabId === "connected-devices") {
+    loadConnectedDevices();
+  }
+});
+
 onMounted(() => {
   connectLogStream();
   loadDeviceInfo();
+  loadConnectedDevices();
 });
 
 onBeforeUnmount(() => {
@@ -328,8 +695,26 @@ async function proceed() {
 </script>
 
 <style scoped>
+.container,
+.tab,
+.btn-danger,
+.btn-primary,
+.connected-device,
+.protocol-pill,
+.pill,
+.settings-group-title,
+.connected-section-title,
+.connected-device-name,
+.connected-detail-name,
+.status,
+.console-sub,
+.modal,
+.credentials,
+.label {
+  font-family: Inter, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
 .container {
-  max-width: 1280px;
   width: 100%;
   padding: 24px;
   display: flex;
@@ -339,6 +724,7 @@ async function proceed() {
 }
 
 h1 {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 2.1rem;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -350,6 +736,7 @@ h1 {
 }
 
 .device-name {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 0.8125rem;
   color: #60a5fa;
   font-weight: 600;
@@ -369,6 +756,7 @@ h1 {
 }
 
 .ws-chip {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -413,33 +801,69 @@ h1 {
 
 .title-block { display: flex; flex-direction: column; gap: 4px; }
 
-.actions { display: flex; gap: 12px; }
-
-.layout {
-  display: grid;
-  grid-template-columns: 1fr minmax(240px, 320px);
-  gap: 20px;
-  align-items: stretch;
+.workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   flex: 1;
   min-height: 0;
 }
 
-.console-panel,
-.sidebar {
-  background: linear-gradient(145deg, #141922, #0f1319);
-  border: 1px solid #1f2937;
-  border-radius: 10px;
-  padding: 20px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+.tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  padding: 0 14px;
+  margin-bottom: -1px;
+  position: relative;
+  z-index: 2;
 }
 
-.sidebar h3 {
-  font-size: 0.85rem;
+.tab {
+  padding: 12px 18px 13px;
+  border-radius: 12px 12px 0 0;
+  border: 1px solid #1f2937;
+  border-bottom-color: #11161d;
+  background: linear-gradient(180deg, rgba(24, 31, 42, 0.96), rgba(16, 22, 30, 0.92));
   color: #9ca3af;
-  margin-bottom: 16px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.tab:hover {
+  color: #d1d5db;
+  border-color: #334155;
+  border-bottom-color: #11161d;
+  background: linear-gradient(180deg, rgba(29, 37, 49, 0.98), rgba(18, 24, 33, 0.94));
+}
+
+.tab.active {
+  color: #60a5fa;
+  background: linear-gradient(145deg, #141922, #0f1319);
+  border-color: rgba(96, 165, 250, 0.4);
+  border-bottom-color: #141922;
+  box-shadow:
+    inset 0 1px 0 rgba(96, 165, 250, 0.14),
+    0 -1px 0 rgba(96, 165, 250, 0.08);
+  z-index: 3;
+}
+
+.tab-panel {
+  background: linear-gradient(145deg, #141922, #0f1319);
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  padding: 24px 20px 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
 }
 
 .btn-danger {
@@ -465,6 +889,266 @@ h1 {
 }
 
 .console-panel { display: flex; flex-direction: column; gap: 10px; }
+
+.connected-panel {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 14px;
+  align-content: stretch;
+  padding: 16px;
+}
+
+.connected-list,
+.connected-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid #1f2937;
+  background: rgba(13, 17, 23, 0.78);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.connected-detail {
+  min-height: 0;
+}
+
+.connected-list {
+  align-items: flex-start;
+}
+
+.connected-list-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.connected-subsection-title {
+  color: #6b7280;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.connected-empty {
+  color: #6b7280;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.connected-empty-panel {
+  justify-content: center;
+}
+
+.connected-list-header,
+.connected-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.connected-section-title {
+  font-size: 0.78rem;
+  color: #9ca3af;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.connected-detail-name {
+  color: #e5e7eb;
+  font-size: 0.96rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.connected-device {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: min(100%, 320px);
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #1f2937;
+  background: linear-gradient(180deg, rgba(15, 19, 25, 0.92), rgba(12, 16, 22, 0.9));
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.connected-device:hover,
+.connected-device:focus-visible {
+  border-color: #334155;
+  background: linear-gradient(180deg, rgba(20, 26, 35, 0.96), rgba(14, 19, 26, 0.94));
+  outline: none;
+}
+
+.connected-device.active {
+  border-color: rgba(96, 165, 250, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.08);
+}
+
+.connected-device-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.connected-device-badges {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.connected-device-name {
+  color: #e5e7eb;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.protocol-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid #1f2937;
+  white-space: nowrap;
+}
+
+.device-state-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid #1f2937;
+  white-space: nowrap;
+}
+
+.device-state-added {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.device-state-detected {
+  color: #facc15;
+  background: rgba(234, 179, 8, 0.12);
+}
+
+.protocol-i2c {
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.protocol-spi {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.protocol-canfd {
+  color: #facc15;
+  background: rgba(234, 179, 8, 0.12);
+}
+
+.protocol-wifi {
+  color: #f472b6;
+  background: rgba(236, 72, 153, 0.12);
+}
+
+.connected-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.connected-detail-row {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #1f2937;
+  background: rgba(10, 14, 20, 0.62);
+}
+
+.connected-detail-row dt {
+  font-size: 0.68rem;
+  color: #6b7280;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.connected-detail-row dd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  color: #e5e7eb;
+  font-size: 0.84rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.settings-panel {
+  display: flex;
+  align-items: flex-start;
+}
+
+.settings-group {
+  width: min(100%, 420px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 10px;
+  border: 1px solid #1f2937;
+  background: rgba(13, 17, 23, 0.78);
+}
+
+.settings-group-title {
+  font-size: 0.82rem;
+  color: #9ca3af;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settings-action {
+  max-width: 320px;
+}
+
+.tab-panel-empty {
+  background:
+    linear-gradient(145deg, rgba(20, 25, 34, 0.98), rgba(15, 19, 25, 0.96)),
+    repeating-linear-gradient(
+      135deg,
+      rgba(59, 130, 246, 0.03),
+      rgba(59, 130, 246, 0.03) 18px,
+      transparent 18px,
+      transparent 36px
+    );
+}
 
 .console-header {
   display: flex;
@@ -498,14 +1182,15 @@ h1 {
 .pill-error { background: rgba(248, 113, 113, 0.12); color: #f87171; }
 
 .console {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   background: #0d1117;
   border: 1px solid #1f2937;
   border-radius: 8px;
   padding: 14px;
   font-size: 0.84rem;
   line-height: 1.05;
-  min-height: 220px;
-  max-height: 60vh;
+  min-height: 0;
+  height: 100%;
   color: #e5e7eb;
   overflow-y: auto;
   overflow-x: auto;
@@ -577,6 +1262,9 @@ h1 {
 
 .label { color: #6b7280; }
 .value { color: #60a5fa; font-weight: 600; }
+.value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
 
 .btn-primary {
   width: 100%;
@@ -616,5 +1304,45 @@ h1 {
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   margin-right: 8px;
+}
+
+@media (max-width: 840px) {
+  .container {
+    padding: 20px 16px;
+  }
+
+  .topbar {
+    flex-direction: column;
+  }
+
+  .tabs {
+    padding: 0 10px;
+  }
+
+  .tab {
+    padding: 11px 14px 12px;
+  }
+
+  .connected-panel {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    gap: 12px;
+    padding: 14px;
+    overflow-y: auto;
+  }
+
+  .connected-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .connected-list,
+  .connected-detail {
+    overflow: visible;
+  }
+
+  .console-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 </style>
