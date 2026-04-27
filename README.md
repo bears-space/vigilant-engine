@@ -3,6 +3,7 @@
 [![Frontend and Firmware CI](https://github.com/bears-space/vigilant-engine/actions/workflows/esp-build.yml/badge.svg)](https://github.com/bears-space/vigilant-engine/actions/workflows/esp-build.yml)
 [![Docs](https://github.com/bears-space/vigilant-engine/actions/workflows/docs.yml/badge.svg)](https://github.com/bears-space/vigilant-engine/actions/workflows/docs.yml)
 [![pre-commit](https://github.com/bears-space/vigilant-engine/actions/workflows/pre-commit.yaml/badge.svg)](https://github.com/bears-space/vigilant-engine/actions/workflows/pre-commit.yaml)
+[![clang-format](https://github.com/bears-space/vigilant-engine/actions/workflows/clang-format.yaml/badge.svg)](https://github.com/bears-space/vigilant-engine/actions/workflows/clang-format.yaml)
 [![Ruff](https://github.com/bears-space/vigilant-engine/actions/workflows/ruff.yaml/badge.svg)](https://github.com/bears-space/vigilant-engine/actions/workflows/ruff.yaml)
 
 Vigilant Engine is the framework on which all ESP-based nodes of the **STARSTREAK** project are built.
