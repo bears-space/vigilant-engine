@@ -53,7 +53,7 @@ static wifi_config_t ap_cfg = {
         .password = CONFIG_VE_AP_PASSWORD,        // leer => open AP, dann aber auch authmode anpassen
         .channel = 1,
         .max_connection = 4,
-        .authmode = WIFI_AUTH_WPA2_PSK 
+        .authmode = WIFI_AUTH_WPA2_PSK
     }
 };
 
@@ -144,7 +144,7 @@ static void wifi_evt(void* arg, esp_event_base_t base, int32_t id, void* data)
         status_led_set_state(STATUS_STATE_WARNING);
         xTimerReset(sta_reconnect_timer, 0);
     }
-    
+
     if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t *e = (ip_event_got_ip_t*)data;
         ESP_LOGI("wifi", "Got IP: " IPSTR, IP2STR(&e->ip_info.ip));
@@ -156,7 +156,7 @@ static esp_err_t wifi_init_once(void)
     static bool inited = false;
     if (inited) return ESP_OK;
 
-    // Netifs 
+    // Netifs
     s_netif_sta = esp_netif_create_default_wifi_sta();
     s_netif_ap  = esp_netif_create_default_wifi_ap();
 
@@ -166,10 +166,10 @@ static esp_err_t wifi_init_once(void)
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_evt, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_evt, NULL));
 
-    sta_reconnect_timer = xTimerCreate("wifi_reconnect", 
-                            pdMS_TO_TICKS(CONFIG_VE_STA_RECONNECT_INTERVAL_MS), 
-                            pdFALSE, 
-                            (void *)0, 
+    sta_reconnect_timer = xTimerCreate("wifi_reconnect",
+                            pdMS_TO_TICKS(CONFIG_VE_STA_RECONNECT_INTERVAL_MS),
+                            pdFALSE,
+                            (void *)0,
                             sta_reconnect_callback);
 
     inited = true;
@@ -237,9 +237,9 @@ esp_err_t vigilant_init(VigilantConfig VgConfig)
     websocket_init_log_capture();
 
     ESP_ERROR_CHECK(esp_read_mac(mac, ESP_MAC_WIFI_STA));
-    snprintf((char*)ap_cfg.ap.ssid, sizeof(ap_cfg.ap.ssid), 
+    snprintf((char*)ap_cfg.ap.ssid, sizeof(ap_cfg.ap.ssid),
              "%s%02X%02X", CONFIG_VE_AP_SSID_PREFIX, mac[4], mac[5]);
-    ESP_LOGI(TAG, "Device MAC: %02X:%02X:%02X:%02X:%02X:%02X", 
+    ESP_LOGI(TAG, "Device MAC: %02X:%02X:%02X:%02X:%02X:%02X",
              mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
     ESP_LOGI(TAG, "Init netif + event loop");
@@ -276,7 +276,7 @@ esp_err_t vigilant_init(VigilantConfig VgConfig)
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "i2c_init failed: %s", esp_err_to_name(ret));
         initializedSuccessfully = false;
-        
+
     } else {
         ESP_LOGI(TAG, "I2C bus initialized successfully");
     }

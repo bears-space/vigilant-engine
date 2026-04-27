@@ -35,7 +35,7 @@ static esp_err_t index_get_handler(httpd_req_t *req)
 {
     httpd_resp_set_type(req, "text/html");
     httpd_resp_set_hdr(req, "Cache-Control", "no-store");
-    
+
     return httpd_resp_send(req, (const char *)index_html_start, index_html_end - index_html_start);
 }
 

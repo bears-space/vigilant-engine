@@ -25,7 +25,7 @@ Supported LEDs: Generic 1-Pin, Generic RGB, WS2812B
 For more information about the available settings, see the menuconfig and the [config page](./config.md).
 
 #### RGB-Mode
-- **Green (slow) blinking**: Info, Period is 1s 
+- **Green (slow) blinking**: Info, Period is 1s
 - **Blue (faster) blinking**: Warning, Period is 600ms
 - **Red (fast) blinking**: Error, Period is 300ms
 

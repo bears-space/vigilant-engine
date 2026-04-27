@@ -10,6 +10,7 @@ dependencies.lock
 /node_modules
 partitions.csv
 .venv
+uv.lock
 
 vigilant-engine-recovery/main/static/*
 components/vigilant_engine/static/*

@@ -30,7 +30,7 @@ BLINK mode:
 - MEDIUM (700ms) = Warning
 - FAST   (100ms) = Error
 RGB mode:
-- GREEN = Info 
+- GREEN = Info
 - BLUE  = Warning
 - RED   = Error
 */
@@ -137,11 +137,11 @@ esp_err_t configure_led()
                 gpio_reset_pin(CONFIG_VE_STATUS_LED_GPIO_RED);
                 gpio_reset_pin(CONFIG_VE_STATUS_LED_GPIO_GREEN);
                 gpio_reset_pin(CONFIG_VE_STATUS_LED_GPIO_BLUE);
-            
+
                 gpio_set_direction(CONFIG_VE_STATUS_LED_GPIO_RED, GPIO_MODE_OUTPUT);
                 gpio_set_direction(CONFIG_VE_STATUS_LED_GPIO_GREEN, GPIO_MODE_OUTPUT);
                 gpio_set_direction(CONFIG_VE_STATUS_LED_GPIO_BLUE, GPIO_MODE_OUTPUT);
-            
+
             #elif defined(CONFIG_VE_STATUS_LED_MODE_BLINK)
                 gpio_reset_pin(CONFIG_VE_STATUS_LED_GPIO_BLINK);
                 gpio_set_direction(CONFIG_VE_STATUS_LED_GPIO_BLINK, GPIO_MODE_OUTPUT);
