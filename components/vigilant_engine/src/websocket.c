@@ -1,23 +1,23 @@
-#include <string.h>
-#include <stdlib.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "esp_log.h"
+#include "cJSON.h"
 #include "esp_err.h"
 #include "esp_http_server.h"
-#include "cJSON.h"
+#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
-static const char *TAG_WS = "ws";
+static const char* TAG_WS = "ws";
 
-#define MAX_WS_PAYLOAD   (8 * 1024)
+#define MAX_WS_PAYLOAD (8 * 1024)
 #define LOG_HISTORY_LINES 200
-#define LOG_LINE_MAX      256
-#define MAX_WS_CLIENTS    8
+#define LOG_LINE_MAX 256
+#define MAX_WS_CLIENTS 8
 #define MAX_PENDING_SENDS_PER_CLIENT 3
 
 typedef struct {
@@ -31,7 +31,7 @@ typedef struct {
     httpd_handle_t hd;
     int fd;
     uint32_t generation;
-    char *payload;
+    char* payload;
     size_t len;
 } ws_send_arg_t;
 
@@ -48,33 +48,31 @@ static vprintf_like_t s_orig_vprintf = NULL;
 
 // Forward declarations
 static void send_log_history(int fd);
-static esp_err_t ws_queue_send_text(int fd, const char *text);
+static esp_err_t ws_queue_send_text(int fd, const char* text);
 
-static bool ws_client_is_connected(int fd)
-{
+static bool ws_client_is_connected(int fd) {
     if (!s_server_handle || fd < 0) {
         return false;
     }
 
-    return httpd_ws_get_fd_info(s_server_handle, fd) == HTTPD_WS_CLIENT_WEBSOCKET;
+    return httpd_ws_get_fd_info(s_server_handle, fd) ==
+           HTTPD_WS_CLIENT_WEBSOCKET;
 }
 
-static uint32_t next_generation(void)
-{
+static uint32_t next_generation(void) {
     uint32_t generation = s_next_generation++;
     return generation;
 }
 
-static SemaphoreHandle_t ensure_mutex(void)
-{
+static SemaphoreHandle_t ensure_mutex(void) {
     if (!s_ws_mutex) {
         s_ws_mutex = xSemaphoreCreateMutex();
     }
-    return s_ws_mutex; // returns NULL on failure, but we check for that in callers
+    return s_ws_mutex;  // returns NULL on failure, but we check for that in
+                        // callers
 }
 
-static uint32_t ws_clients_add(int fd)
-{
+static uint32_t ws_clients_add(int fd) {
     ensure_mutex();
     if (!s_ws_mutex) return 0;
 
@@ -106,8 +104,7 @@ static uint32_t ws_clients_add(int fd)
     return 0;
 }
 
-static bool ws_clients_remove_generation(int fd, uint32_t generation)
-{
+static bool ws_clients_remove_generation(int fd, uint32_t generation) {
     if (!s_ws_mutex) return false;
     bool removed = false;
     xSemaphoreTake(s_ws_mutex, portMAX_DELAY);
@@ -125,13 +122,11 @@ static bool ws_clients_remove_generation(int fd, uint32_t generation)
     return removed;
 }
 
-static void ws_clients_remove(int fd)
-{
+static void ws_clients_remove(int fd) {
     (void)ws_clients_remove_generation(fd, 0);
 }
 
-static bool ws_clients_mark_send_queued(int fd, uint32_t *generation)
-{
+static bool ws_clients_mark_send_queued(int fd, uint32_t* generation) {
     SemaphoreHandle_t mutex = ensure_mutex();
     if (!mutex) return false;
     if (!s_ws_mutex) return false;
@@ -152,8 +147,7 @@ static bool ws_clients_mark_send_queued(int fd, uint32_t *generation)
     return queued;
 }
 
-static void ws_clients_mark_send_done(int fd, uint32_t generation)
-{
+static void ws_clients_mark_send_done(int fd, uint32_t generation) {
     if (!s_ws_mutex) return;
 
     xSemaphoreTake(s_ws_mutex, portMAX_DELAY);
@@ -169,8 +163,7 @@ static void ws_clients_mark_send_done(int fd, uint32_t generation)
     xSemaphoreGive(s_ws_mutex);
 }
 
-static bool ws_client_generation_is_current(int fd, uint32_t generation)
-{
+static bool ws_client_generation_is_current(int fd, uint32_t generation) {
     if (!s_ws_mutex) return false;
 
     bool current = false;
@@ -186,23 +179,19 @@ static bool ws_client_generation_is_current(int fd, uint32_t generation)
     return current;
 }
 
-static void ws_trigger_close_if_current(int fd, uint32_t generation)
-{
+static void ws_trigger_close_if_current(int fd, uint32_t generation) {
     if (ws_clients_remove_generation(fd, generation) && s_server_handle) {
         httpd_sess_trigger_close(s_server_handle, fd);
     }
 }
 
-static bool should_stream_log_line(const char *line)
-{
+static bool should_stream_log_line(const char* line) {
     // Avoid feeding HTTPD/WebSocket transport errors back into the WebSocket
     // that just failed. They still print on UART and remain in the history.
-    return !strstr(line, " httpd_txrx:") &&
-           !strstr(line, " httpd_ws:");
+    return !strstr(line, " httpd_txrx:") && !strstr(line, " httpd_ws:");
 }
 
-static void append_log_line(const char *line)
-{
+static void append_log_line(const char* line) {
     ensure_mutex();
     if (!s_ws_mutex) return;
 
@@ -217,9 +206,8 @@ static void append_log_line(const char *line)
     xSemaphoreGive(s_ws_mutex);
 }
 
-static void ws_send_text_async(void *arg)
-{
-    ws_send_arg_t *a = (ws_send_arg_t *)arg;
+static void ws_send_text_async(void* arg) {
+    ws_send_arg_t* a = (ws_send_arg_t*)arg;
     if (!a) return;
 
     if (!ws_client_generation_is_current(a->fd, a->generation) ||
@@ -235,7 +223,7 @@ static void ws_send_text_async(void *arg)
         .final = true,
         .fragmented = false,
         .type = HTTPD_WS_TYPE_TEXT,
-        .payload = (uint8_t *)a->payload,
+        .payload = (uint8_t*)a->payload,
         .len = a->len,
     };
 
@@ -249,8 +237,7 @@ static void ws_send_text_async(void *arg)
     free(a);
 }
 
-static esp_err_t ws_queue_send_text(int fd, const char *text)
-{
+static esp_err_t ws_queue_send_text(int fd, const char* text) {
     if (!s_server_handle || !text) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -260,8 +247,8 @@ static esp_err_t ws_queue_send_text(int fd, const char *text)
         return ESP_ERR_INVALID_STATE;
     }
 
-    ws_send_arg_t *arg = (ws_send_arg_t *)malloc(sizeof(ws_send_arg_t));
-    char *dup = strdup(text);
+    ws_send_arg_t* arg = (ws_send_arg_t*)malloc(sizeof(ws_send_arg_t));
+    char* dup = strdup(text);
     if (!arg || !dup) {
         free(arg);
         free(dup);
@@ -284,8 +271,7 @@ static esp_err_t ws_queue_send_text(int fd, const char *text)
     return ret;
 }
 
-static void broadcast_log_line(const char *line)
-{
+static void broadcast_log_line(const char* line) {
     ensure_mutex();
     if (!s_ws_mutex) return;
 
@@ -304,11 +290,11 @@ static void broadcast_log_line(const char *line)
         return;
     }
 
-    cJSON *root = cJSON_CreateObject();
+    cJSON* root = cJSON_CreateObject();
     if (!root) return;
     cJSON_AddStringToObject(root, "type", "log");
     cJSON_AddStringToObject(root, "line", line);
-    char *out = cJSON_PrintUnformatted(root);
+    char* out = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
     if (!out) return;
 
@@ -318,8 +304,7 @@ static void broadcast_log_line(const char *line)
     free(out);
 }
 
-static int websocket_log_vprintf(const char *fmt, va_list ap)
-{
+static int websocket_log_vprintf(const char* fmt, va_list ap) {
     char line[LOG_LINE_MAX];
 
     va_list ap_copy;
@@ -345,16 +330,15 @@ static int websocket_log_vprintf(const char *fmt, va_list ap)
     return vprintf(fmt, ap);
 }
 
-static void send_log_history(int fd)
-{
+static void send_log_history(int fd) {
     ensure_mutex();
     if (!s_ws_mutex) return;
 
-    cJSON *root = cJSON_CreateObject();
+    cJSON* root = cJSON_CreateObject();
     if (!root) return;
 
     cJSON_AddStringToObject(root, "type", "logs");
-    cJSON *arr = cJSON_AddArrayToObject(root, "lines");
+    cJSON* arr = cJSON_AddArrayToObject(root, "lines");
     if (!arr) {
         cJSON_Delete(root);
         return;
@@ -362,14 +346,15 @@ static void send_log_history(int fd)
 
     xSemaphoreTake(s_ws_mutex, portMAX_DELAY);
     size_t count = s_log_count;
-    size_t idx = (s_log_head + LOG_HISTORY_LINES - s_log_count) % LOG_HISTORY_LINES; // oldest
+    size_t idx = (s_log_head + LOG_HISTORY_LINES - s_log_count) %
+                 LOG_HISTORY_LINES;  // oldest
     for (size_t i = 0; i < count; ++i) {
         cJSON_AddItemToArray(arr, cJSON_CreateString(s_log_lines[idx]));
         idx = (idx + 1) % LOG_HISTORY_LINES;
     }
     xSemaphoreGive(s_ws_mutex);
 
-    char *out = cJSON_PrintUnformatted(root);
+    char* out = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
     if (!out) return;
 
@@ -377,20 +362,18 @@ static void send_log_history(int fd)
     free(out);
 }
 
-static esp_err_t ws_send_text(httpd_req_t *req, const char *text)
-{
+static esp_err_t ws_send_text(httpd_req_t* req, const char* text) {
     httpd_ws_frame_t out = {
         .final = true,
         .fragmented = false,
         .type = HTTPD_WS_TYPE_TEXT,
-        .payload = (uint8_t *)text,
+        .payload = (uint8_t*)text,
         .len = strlen(text),
     };
     return httpd_ws_send_frame(req, &out);
 }
 
-static esp_err_t websocket_handler(httpd_req_t *req)
-{
+static esp_err_t websocket_handler(httpd_req_t* req) {
     esp_err_t ret = ESP_OK;
     httpd_ws_frame_t ws_pkt = {0};
     int fd = httpd_req_to_sockfd(req);
@@ -431,7 +414,7 @@ static esp_err_t websocket_handler(httpd_req_t *req)
     }
 
     // 2) Allocate payload buffer (+1 so we can null-terminate text)
-    ws_pkt.payload = (uint8_t *)malloc(ws_pkt.len + 1);
+    ws_pkt.payload = (uint8_t*)malloc(ws_pkt.len + 1);
     if (!ws_pkt.payload) {
         return ESP_ERR_NO_MEM;
     }
@@ -455,16 +438,16 @@ static esp_err_t websocket_handler(httpd_req_t *req)
         return ESP_OK;
     }
 
-    ((char *)ws_pkt.payload)[ws_pkt.len] = '\0';
+    ((char*)ws_pkt.payload)[ws_pkt.len] = '\0';
 
-    cJSON *root = cJSON_Parse((char *)ws_pkt.payload);
+    cJSON* root = cJSON_Parse((char*)ws_pkt.payload);
     if (!root) {
         ws_send_text(req, "{\"type\":\"error\",\"msg\":\"invalid json\"}");
         free(ws_pkt.payload);
         return ESP_OK;
     }
 
-    cJSON *type = cJSON_GetObjectItem(root, "type");
+    cJSON* type = cJSON_GetObjectItem(root, "type");
     if (cJSON_IsString(type) && type->valuestring &&
         strcmp(type->valuestring, "get-logs") == 0) {
         send_log_history(fd);
@@ -472,7 +455,8 @@ static esp_err_t websocket_handler(httpd_req_t *req)
                strcmp(type->valuestring, "ping") == 0) {
         ws_send_text(req, "{\"type\":\"pong\"}");
     } else {
-        ws_send_text(req, "{\"type\":\"error\",\"msg\":\"unknown or missing type\"}");
+        ws_send_text(
+            req, "{\"type\":\"error\",\"msg\":\"unknown or missing type\"}");
     }
 
     cJSON_Delete(root);
@@ -480,26 +464,22 @@ static esp_err_t websocket_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-void websocket_init_log_capture(void)
-{
+void websocket_init_log_capture(void) {
     if (s_orig_vprintf) {
-        return; // already hooked
+        return;  // already hooked
     }
 
     s_orig_vprintf = esp_log_set_vprintf(websocket_log_vprintf);
     ensure_mutex();
 }
 
-void websocket_client_closed(int fd)
-{
-    ws_clients_remove(fd);
-}
+void websocket_client_closed(int fd) { ws_clients_remove(fd); }
 
 /**
- * ✅ This symbol must exist (non-static), because your http_server.c links against it.
+ * ✅ This symbol must exist (non-static), because your http_server.c links
+ * against it.
  */
-esp_err_t websocket_register_handlers(httpd_handle_t server)
-{
+esp_err_t websocket_register_handlers(httpd_handle_t server) {
     s_server_handle = server;
     websocket_init_log_capture();
 

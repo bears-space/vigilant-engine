@@ -8,4 +8,5 @@ dependencies = [
     "pytest>=9.0.3",
     "pre-commit>=4.6.0",
     "mkdocs>=1.6.1",
+    "clang-format>=22.1.4",
 ]

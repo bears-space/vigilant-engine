@@ -1,3 +1,4 @@
+fail_fast: false
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v6.0.0
@@ -22,3 +23,9 @@ repos:
   - id: ruff
     args: [ --select, I, --fix ]
   - id: ruff-format
+
+- repo: https://github.com/pocc/pre-commit-hooks
+  rev: master
+  hooks:
+    - id: clang-format
+      args: [--style=file, -i]
