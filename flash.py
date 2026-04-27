@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 import argparse
 import os
-import sys
 import subprocess
+import sys
 from pathlib import Path
 
 MAIN_BIN_REL = Path("build") / "vigilant-engine.bin"
-RECOVERY_BIN_REL = Path("vigilant-engine-recovery") / "build" / "vigilant-engine-recovery.bin"
+RECOVERY_BIN_REL = (
+    Path("vigilant-engine-recovery") / "build" / "vigilant-engine-recovery.bin"
+)
 
 # Debug output to verify paths
 # print(f"MAIN_BIN_REL: {MAIN_BIN_REL}")
@@ -52,7 +54,7 @@ def idf_build(repo_root: Path, project_dir: Path | None = None):
     if project_dir is not None:
         # works on Windows + Linux, avoids relying on file associations
         cmd += ["-C", str(project_dir)]
-    #reconfigure builds sdkconfig
+    # reconfigure builds sdkconfig
     cmd += ["reconfigure", "build"]
     run(cmd, cwd=repo_root)
 
@@ -62,14 +64,21 @@ def write_partition(port: str, baud: int, part_name: str, bin_path: Path):
         raise FileNotFoundError(f"BIN nicht gefunden: {bin_path}")
 
     parttool = find_parttool()
-    run([
-        sys.executable, str(parttool),
-        "--port", port,
-        "--baud", str(baud),
-        "write_partition",
-        "--partition-name", part_name,
-        "--input", str(bin_path),
-    ])
+    run(
+        [
+            sys.executable,
+            str(parttool),
+            "--port",
+            port,
+            "--baud",
+            str(baud),
+            "write_partition",
+            "--partition-name",
+            part_name,
+            "--input",
+            str(bin_path),
+        ]
+    )
 
 
 def main():
@@ -77,9 +86,15 @@ def main():
         description="Cross-platform flash helper for Vigilant Engine (ESP-IDF)."
     )
     parser.add_argument("target", choices=["main", "recovery"], help="What to flash")
-    parser.add_argument("--port", required=True, help="Serial port (e.g. COM7 or /dev/ttyACM0)")
-    parser.add_argument("--baud", type=int, default=921600, help="Baud rate (default: 921600)")
-    parser.add_argument("--no-build", action="store_true", help="Skip idf.py build step")
+    parser.add_argument(
+        "--port", required=True, help="Serial port (e.g. COM7 or /dev/ttyACM0)"
+    )
+    parser.add_argument(
+        "--baud", type=int, default=921600, help="Baud rate (default: 921600)"
+    )
+    parser.add_argument(
+        "--no-build", action="store_true", help="Skip idf.py build step"
+    )
 
     args = parser.parse_args()
     repo_root = Path(__file__).resolve().parent
@@ -92,7 +107,9 @@ def main():
     else:  # recovery
         if not args.no_build:
             idf_build(repo_root, project_dir=Path("vigilant-engine-recovery"))
-        write_partition(args.port, args.baud, PART_RECOVERY, repo_root / RECOVERY_BIN_REL)
+        write_partition(
+            args.port, args.baud, PART_RECOVERY, repo_root / RECOVERY_BIN_REL
+        )
 
 
 if __name__ == "__main__":

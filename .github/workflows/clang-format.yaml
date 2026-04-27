@@ -1,0 +1,37 @@
+name: clang-format
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  clang-format:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python from .python-version
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Check C and C++ formatting
+        shell: bash
+        run: |
+          mapfile -t files < <(git ls-files '*.c' '*.h' '*.cc' '*.cpp' '*.cxx' '*.hpp' '*.hh' '*.hxx')
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No C/C++ files found to check."
+            exit 0
+          fi
+
+          uv run clang-format --dry-run --Werror --style=file "${files[@]}"

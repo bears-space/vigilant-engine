@@ -1,27 +1,27 @@
 #include "i2c.h"
 
-#include <string.h>
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "driver/i2c_master.h"
-#include "esp_log.h"
 #include "esp_err.h"
+#include "esp_log.h"
 #include "sdkconfig.h"
 
-#define I2C_SCL_IO          CONFIG_VE_I2C_SCL_IO
-#define I2C_SDA_IO          CONFIG_VE_I2C_SDA_IO
-#define I2C_PORT            I2C_NUM_0
-#define I2C_FREQ_HZ         CONFIG_VE_I2C_FREQ_HZ
-#define I2C_TIMEOUT_MS      50
+#define I2C_SCL_IO CONFIG_VE_I2C_SCL_IO
+#define I2C_SDA_IO CONFIG_VE_I2C_SDA_IO
+#define I2C_PORT I2C_NUM_0
+#define I2C_FREQ_HZ CONFIG_VE_I2C_FREQ_HZ
+#define I2C_TIMEOUT_MS 50
 
-static const char *TAG = "ve_i2c";
+static const char* TAG = "ve_i2c";
 static i2c_master_bus_handle_t s_i2c_bus = NULL;
 static uint8_t s_detected_i2c_addresses[16] = {0};
 static size_t s_detected_i2c_count = 0;
 
-static esp_err_t i2c_scan_devices(uint8_t *addresses, size_t max_addresses, size_t *count, bool log_results)
-{
+static esp_err_t i2c_scan_devices(uint8_t* addresses, size_t max_addresses,
+                                  size_t* count, bool log_results) {
     if (!s_i2c_bus) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -55,7 +55,8 @@ static esp_err_t i2c_scan_devices(uint8_t *addresses, size_t max_addresses, size
             char cell[4] = "   ";
 
             if (addr >= 0x03 && addr <= 0x77) {
-                esp_err_t err = i2c_master_probe(s_i2c_bus, addr, I2C_TIMEOUT_MS);
+                esp_err_t err =
+                    i2c_master_probe(s_i2c_bus, addr, I2C_TIMEOUT_MS);
                 if (err == ESP_OK) {
                     if (addresses && stored < max_addresses) {
                         addresses[stored++] = addr;
@@ -82,7 +83,8 @@ static esp_err_t i2c_scan_devices(uint8_t *addresses, size_t max_addresses, size
     if (log_results) {
         ESP_LOGI(TAG, "Scan complete, found %u device(s)", (unsigned int)found);
         if (stored < found) {
-            ESP_LOGW(TAG, "Detected device list truncated to %u entrie(s)", (unsigned int)stored);
+            ESP_LOGW(TAG, "Detected device list truncated to %u entrie(s)",
+                     (unsigned int)stored);
         }
     }
 
@@ -90,15 +92,12 @@ static esp_err_t i2c_scan_devices(uint8_t *addresses, size_t max_addresses, size
     return ESP_OK;
 }
 
-static esp_err_t i2c_refresh_detected_devices(bool log_results)
-{
+static esp_err_t i2c_refresh_detected_devices(bool log_results) {
     size_t detected_count = 0;
     esp_err_t err = i2c_scan_devices(
         s_detected_i2c_addresses,
         sizeof(s_detected_i2c_addresses) / sizeof(s_detected_i2c_addresses[0]),
-        &detected_count,
-        log_results
-    );
+        &detected_count, log_results);
     if (err != ESP_OK) {
         return err;
     }
@@ -107,15 +106,14 @@ static esp_err_t i2c_refresh_detected_devices(bool log_results)
     return ESP_OK;
 }
 
-esp_err_t i2c_init(void)
-{
+esp_err_t i2c_init(void) {
     if (s_i2c_bus) {
         ESP_LOGI(TAG, "I2C bus already initialized");
         return ESP_OK;
     }
 
-    ESP_LOGI(TAG, "Bus initializing... SCL=%d SDA=%d FREQ=%dHz",
-             I2C_SCL_IO, I2C_SDA_IO, I2C_FREQ_HZ);
+    ESP_LOGI(TAG, "Bus initializing... SCL=%d SDA=%d FREQ=%dHz", I2C_SCL_IO,
+             I2C_SDA_IO, I2C_FREQ_HZ);
 
     i2c_master_bus_config_t cfg = {
         .clk_source = I2C_CLK_SRC_DEFAULT,
@@ -128,7 +126,8 @@ esp_err_t i2c_init(void)
 
     esp_err_t err = i2c_new_master_bus(&cfg, &s_i2c_bus);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to create I2C master bus: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "Failed to create I2C master bus: %s",
+                 esp_err_to_name(err));
         return err;
     }
 
@@ -141,8 +140,7 @@ esp_err_t i2c_init(void)
     return ESP_OK;
 }
 
-esp_err_t i2c_add_device(VigilantI2CDevice *device)
-{
+esp_err_t i2c_add_device(VigilantI2CDevice* device) {
     if (!s_i2c_bus) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -150,7 +148,8 @@ esp_err_t i2c_add_device(VigilantI2CDevice *device)
         return ESP_ERR_INVALID_ARG;
     }
     if (device->handle) {
-        ESP_LOGW(TAG, "I2C device 0x%02X already added", (unsigned int)device->address);
+        ESP_LOGW(TAG, "I2C device 0x%02X already added",
+                 (unsigned int)device->address);
         return ESP_OK;
     }
 
@@ -160,7 +159,8 @@ esp_err_t i2c_add_device(VigilantI2CDevice *device)
         .scl_speed_hz = I2C_FREQ_HZ,
     };
 
-    esp_err_t err = i2c_master_bus_add_device(s_i2c_bus, &dev_cfg, &device->handle);
+    esp_err_t err =
+        i2c_master_bus_add_device(s_i2c_bus, &dev_cfg, &device->handle);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to add I2C device 0x%02X: %s",
                  (unsigned int)device->address, esp_err_to_name(err));
@@ -170,8 +170,7 @@ esp_err_t i2c_add_device(VigilantI2CDevice *device)
     return ESP_OK;
 }
 
-esp_err_t i2c_remove_device(VigilantI2CDevice *device)
-{
+esp_err_t i2c_remove_device(VigilantI2CDevice* device) {
     if (!device || !device->handle) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -184,14 +183,15 @@ esp_err_t i2c_remove_device(VigilantI2CDevice *device)
     return err;
 }
 
-esp_err_t i2c_set_reg8(VigilantI2CDevice *device, uint8_t reg, uint8_t value)
-{
+esp_err_t i2c_set_reg8(VigilantI2CDevice* device, uint8_t reg, uint8_t value) {
     if (!device) {
         ESP_LOGE(TAG, "Cannot write reg 0x%02X: device object is NULL", reg);
         return ESP_ERR_INVALID_ARG;
     }
     if (!device->handle) {
-        ESP_LOGE(TAG, "Cannot write reg 0x%02X: device 0x%02X has no handle. Call i2c_add_device() first.",
+        ESP_LOGE(TAG,
+                 "Cannot write reg 0x%02X: device 0x%02X has no handle. Call "
+                 "i2c_add_device() first.",
                  reg, (unsigned int)device->address);
         return ESP_ERR_INVALID_ARG;
     }
@@ -200,14 +200,16 @@ esp_err_t i2c_set_reg8(VigilantI2CDevice *device, uint8_t reg, uint8_t value)
     return i2c_master_transmit(device->handle, payload, sizeof(payload), 100);
 }
 
-esp_err_t i2c_read_reg8(VigilantI2CDevice *device, uint8_t reg, uint8_t *value)
-{
+esp_err_t i2c_read_reg8(VigilantI2CDevice* device, uint8_t reg,
+                        uint8_t* value) {
     if (!device) {
         ESP_LOGE(TAG, "Cannot read reg 0x%02X: device object is NULL", reg);
         return ESP_ERR_INVALID_ARG;
     }
     if (!device->handle) {
-        ESP_LOGE(TAG, "Cannot read reg 0x%02X: device 0x%02X has no handle. Call i2c_add_device() first.",
+        ESP_LOGE(TAG,
+                 "Cannot read reg 0x%02X: device 0x%02X has no handle. Call "
+                 "i2c_add_device() first.",
                  reg, (unsigned int)device->address);
         return ESP_ERR_INVALID_ARG;
     }
@@ -219,8 +221,7 @@ esp_err_t i2c_read_reg8(VigilantI2CDevice *device, uint8_t reg, uint8_t *value)
     return i2c_master_transmit_receive(device->handle, &reg, 1, value, 1, 100);
 }
 
-esp_err_t i2c_whoami_check(VigilantI2CDevice *device)
-{
+esp_err_t i2c_whoami_check(VigilantI2CDevice* device) {
     if (!device) {
         ESP_LOGE(TAG, "Cannot run WHOAMI check: device object is NULL");
         return ESP_ERR_INVALID_ARG;
@@ -245,8 +246,8 @@ esp_err_t i2c_whoami_check(VigilantI2CDevice *device)
     return ESP_OK;
 }
 
-esp_err_t i2c_get_detected_devices(uint8_t *addresses, size_t max_addresses, size_t *count)
-{
+esp_err_t i2c_get_detected_devices(uint8_t* addresses, size_t max_addresses,
+                                   size_t* count) {
     if (!count) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -260,15 +261,15 @@ esp_err_t i2c_get_detected_devices(uint8_t *addresses, size_t max_addresses, siz
     }
 
     if (addresses && copied_count > 0) {
-        memcpy(addresses, s_detected_i2c_addresses, copied_count * sizeof(s_detected_i2c_addresses[0]));
+        memcpy(addresses, s_detected_i2c_addresses,
+               copied_count * sizeof(s_detected_i2c_addresses[0]));
     }
 
     *count = copied_count;
     return ESP_OK;
 }
 
-void i2c_deinit(void)
-{
+void i2c_deinit(void) {
     if (s_i2c_bus) {
         esp_err_t err = i2c_del_master_bus(s_i2c_bus);
         if (err != ESP_OK) {

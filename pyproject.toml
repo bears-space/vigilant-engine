@@ -1,0 +1,12 @@
+[project]
+name = "vigilant-engine"
+version = "0.1.0"
+description = "Base Framework for ESP-32 based microcontrollers"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "pytest>=9.0.3",
+    "pre-commit>=4.6.0",
+    "mkdocs>=1.6.1",
+    "clang-format>=22.1.4",
+]

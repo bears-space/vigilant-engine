@@ -10,8 +10,16 @@ environment is exported before building or flashing.
 - ^ To avoid this just use esp-idf in vs-code
 - NodeJS & NPM installed
 - A compatible ESP target and a USB serial connection
+- `uv` installed (see <https://docs.astral.sh/uv/getting-started/installation/>)
 
 ## Environment setup
+
+Before you do anything else, setup your Python environment and configure pre-commit:
+
+```sh
+uv sync --dev
+uv run pre-commit install
+```
 
 Use the ESP-IDF terminal in VS Code or run the ESP-IDF export script in your shell. The tooling
 relies on `IDF_PATH` and standard ESP-IDF environment variables.
