@@ -10,6 +10,10 @@ Vigilant Engine is the framework on which all ESP-based nodes of the **STARSTREA
 It provides the fundamental building blocks for connected, remotely maintainable devices, including
 reliable OTA updates, flexible network modes, and peripheral support.
 
+## Documentation
+
+All documentation for this project is located at: <https://www.bears-space.de/vigilant-engine/>
+
 ## Dev environment setup
 
 Development should be done in VSCode using the ESP-IDF extension.
