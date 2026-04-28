@@ -33,3 +33,7 @@ python $IDF_PATH/components/app_update/otatool.py --port /dev/ttyACM0 switch_ota
 
 `flash.py` runs `idf.py reconfigure`, which rebuilds `sdkconfig` from `sdkconfig.defaults`. Set the
 correct flash size in `sdkconfig.defaults` so rebuilds keep the proper values.
+
+## IntelliSense highlighting freertos libraries red
+
+In vscode: Ctrl+Shift+P to open command palette, then run: `> ESP-IDF: Add VS Code Configuration Folder`
