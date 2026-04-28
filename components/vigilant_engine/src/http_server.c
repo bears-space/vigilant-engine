@@ -343,10 +343,21 @@ static esp_err_t i2cinfo_get_handler(httpd_req_t* req) {
     return ESP_OK;
 }
 
+static esp_err_t wifiinfo_get_handler(httpd_req_t* req) {
+
+}
+
 static const httpd_uri_t i2cinfo_uri = {
     .uri = "/i2cinfo",
     .method = HTTP_GET,
     .handler = i2cinfo_get_handler,
+    .user_ctx = NULL,
+};
+
+static const httpd_uri_t wifiinfo_uri = {
+    .uri = "/wifiinfo",
+    .method = HTTP_GET,
+    .handler = wifiinfo_get_handler,
     .user_ctx = NULL,
 };
 
@@ -427,6 +438,7 @@ static httpd_handle_t start_webserver_internal(void) {
         httpd_register_uri_handler(server, &any);
         httpd_register_uri_handler(server, &info_uri);
         httpd_register_uri_handler(server, &i2cinfo_uri);
+        httpd_register_uri_handler(server, &wifiinfo_uri);
         websocket_register_handlers(server);
 
         // OTA-Handler registrieren
