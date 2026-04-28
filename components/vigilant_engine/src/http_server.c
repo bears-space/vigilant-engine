@@ -344,7 +344,13 @@ static esp_err_t i2cinfo_get_handler(httpd_req_t* req) {
 }
 
 static esp_err_t wifiinfo_get_handler(httpd_req_t* req) {
-
+    VigilantWiFiInfo info = {0};
+    esp_err_t err = vigilant_get_wifiinfo(&info);
+    if (err != ESP_OK) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
+                            "Failed to fetch wifi info");
+        return err;
+    }
 }
 
 static const httpd_uri_t i2cinfo_uri = {
