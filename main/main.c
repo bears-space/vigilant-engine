@@ -10,6 +10,7 @@
 
 void app_main(void) {
     VigilantConfig VgConfig = {.unique_component_name = "Vigilant ESP Test",
-                               .network_mode = NW_MODE_APSTA};
+                               .network_mode = NW_MODE_APSTA,
+                               .is - master = true};
     ESP_ERROR_CHECK(vigilant_init(VgConfig));
 }

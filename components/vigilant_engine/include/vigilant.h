@@ -12,11 +12,13 @@ typedef enum { NW_MODE_AP = 0, NW_MODE_STA, NW_MODE_APSTA } NW_MODE;
 typedef struct {
     char unique_component_name[32];
     NW_MODE network_mode;
+    bool is_master;
 } VigilantConfig;
 
 typedef struct {
     char unique_component_name[32];
     NW_MODE network_mode;
+    bool is_master;
     char mac[18];       // e.g. "AA:BB:CC:DD:EE:FF"
     char ap_ssid[33];   // configured AP SSID (null-terminated)
     char sta_ssid[33];  // configured STA SSID (null-terminated)

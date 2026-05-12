@@ -204,6 +204,15 @@ esp_err_t vigilant_init(VigilantConfig VgConfig) {
         true;  // Assume success until a failure occurs
     uint8_t mac[6];
 
+    // throw compiler error is is-master is true but network mode is not APSTA
+    // (since only APSTA supports both AP and STA)
+    if (VgConfig.is_master && VgConfig.network_mode != NW_MODE_APSTA) {
+        ESP_LOGE(TAG,
+                 "Invalid configuration: is_master=true requires "
+                 "network_mode=NW_MODE_APSTA");
+        return ESP_ERR_INVALID_ARG;
+    }
+
     ESP_LOGI(TAG, "Init NVS");
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
