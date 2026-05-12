@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>I2C Interface - Vigilant Engine Documentation</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "I2C Interface";
+        var mkdocs_page_input_path = "i2c-interface.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> Vigilant Engine Documentation
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../getting-started/">Getting Started</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../build-flash/">Build & Flash</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../project-layout/">Project Layout</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../features/">Firmware Features</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../config/">Configuration</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../recovery-ota/">Recovery & OTA</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../peripherals/">Peripherals</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">I2C Interface</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#enable-i2c">Enable I2C</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#runtime-flow">Runtime flow</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#device-object">Device object</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#vigilanti2cdevice-struct">VigilantI2CDevice, struct</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#fields">Fields:</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#public-runtime-functions">Public runtime functions</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#vigilant_i2c_add_device-function">vigilant_i2c_add_device, function</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#parameters">Parameters:</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#returns">Returns:</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#vigilant_i2c_remove_device-function">vigilant_i2c_remove_device, function</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#parameters_1">Parameters:</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#returns_1">Returns:</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#vigilant_i2c_set_reg8-function">vigilant_i2c_set_reg8, function</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#parameters_2">Parameters:</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#returns_2">Returns:</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#vigilant_i2c_read_reg8-function">vigilant_i2c_read_reg8, function</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#parameters_3">Parameters:</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#returns_3">Returns:</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#vigilant_i2c_whoami_check-function">vigilant_i2c_whoami_check, function</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#parameters_4">Parameters:</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#returns_4">Returns:</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#low-level-i2c-functions">Low-level I2C functions</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#i2c_init-function">i2c_init, function</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#returns_5">Returns:</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#i2c_add_device-function">i2c_add_device, function</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#i2c_remove_device-function">i2c_remove_device, function</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#i2c_set_reg8-function">i2c_set_reg8, function</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#i2c_read_reg8-function">i2c_read_reg8, function</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#i2c_whoami_check-function">i2c_whoami_check, function</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#i2c_deinit-function">i2c_deinit, function</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#example">Example</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#notes">Notes</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../troubleshooting/">Troubleshooting</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../partitions/">Partition Table</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../flash-helper/">Flash Helper</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">Vigilant Engine Documentation</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">I2C Interface</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="i2c-interface">I2C Interface<a class="headerlink" href="#i2c-interface" title="Permanent link">&para;</a></h1>
+<p>Vigilant Engine can expose an I2C master bus for node-specific sensors and peripherals. When I2C is enabled in
+menuconfig, the bus is initialized during <code>vigilant_init()</code> and can then be used from the main firmware through
+the public <code>vigilant_i2c_*</code> helpers.</p>
+<h2 id="enable-i2c">Enable I2C<a class="headerlink" href="#enable-i2c" title="Permanent link">&para;</a></h2>
+<p>In <code>idf.py menuconfig</code>, open <code>Vigilant Engine Configuration: I2C</code> and configure:</p>
+<ul>
+<li><code>VE_ENABLE_I2C</code>: Enables the I2C interface in Vigilant Engine</li>
+<li><code>VE_I2C_SCL_IO</code>: GPIO used for SCL</li>
+<li><code>VE_I2C_SDA_IO</code>: GPIO used for SDA</li>
+<li><code>VE_I2C_FREQ_HZ</code>: I2C bus frequency in Hertz</li>
+</ul>
+<p>When enabled, Vigilant Engine builds the I2C driver, creates the bus during startup, and logs a scan of detected
+7-bit device addresses.</p>
+<h2 id="runtime-flow">Runtime flow<a class="headerlink" href="#runtime-flow" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Call <code>vigilant_init(...)</code> first</li>
+<li>Define a <code>VigilantI2CDevice</code> object for your sensor or peripheral</li>
+<li>Add the device with <code>vigilant_i2c_add_device(&amp;device)</code></li>
+<li>Optionally verify identity with <code>vigilant_i2c_whoami_check(&amp;device)</code></li>
+<li>Write single-byte registers with <code>vigilant_i2c_set_reg8(&amp;device, reg, value)</code></li>
+<li>Read single-byte registers with <code>vigilant_i2c_read_reg8(&amp;device, reg, &amp;value)</code></li>
+<li>Remove the device with <code>vigilant_i2c_remove_device(&amp;device)</code> if you no longer need it</li>
+</ul>
+<p>If I2C is disabled in menuconfig, the public <code>vigilant_i2c_*</code> helpers return <code>ESP_ERR_NOT_SUPPORTED</code>.</p>
+<h2 id="device-object">Device object<a class="headerlink" href="#device-object" title="Permanent link">&para;</a></h2>
+<p>The I2C interface uses a small device object so the caller only has to pass one pointer around.</p>
+<hr />
+<h4 id="vigilanti2cdevice-struct"><code>VigilantI2CDevice</code>, <strong>struct</strong><a class="headerlink" href="#vigilanti2cdevice-struct" title="Permanent link">&para;</a></h4>
+<p>Describes one I2C peripheral on the shared bus.</p>
+<h6 id="fields">Fields:<a class="headerlink" href="#fields" title="Permanent link">&para;</a></h6>
+<ul>
+<li><code>address</code> 7-bit I2C device address</li>
+<li><code>whoami_reg</code> Register used by the optional WHOAMI check</li>
+<li><code>expected_whoami</code> Expected value returned by the WHOAMI register</li>
+<li><code>handle</code> Runtime device handle managed by Vigilant Engine. Initialize this to <code>NULL</code></li>
+</ul>
+<h2 id="public-runtime-functions">Public runtime functions<a class="headerlink" href="#public-runtime-functions" title="Permanent link">&para;</a></h2>
+<p>These are the functions intended to be used from the application in <code>main/</code>.</p>
+<hr />
+<h4 id="vigilant_i2c_add_device-function"><code>vigilant_i2c_add_device</code>, <strong>function</strong><a class="headerlink" href="#vigilant_i2c_add_device-function" title="Permanent link">&para;</a></h4>
+<p>Registers a device on the initialized Vigilant Engine I2C bus and stores the ESP-IDF device handle in the
+provided <code>VigilantI2CDevice</code> object.</p>
+<h6 id="parameters">Parameters:<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h6>
+<ul>
+<li><code>device</code> Pointer to the <code>VigilantI2CDevice</code> object to add</li>
+</ul>
+<h6 id="returns">Returns:<a class="headerlink" href="#returns" title="Permanent link">&para;</a></h6>
+<ul>
+<li><code>ESP_OK</code> Device was added successfully, or was already added</li>
+<li><code>ESP_ERR_INVALID_STATE</code> I2C bus is not initialized</li>
+<li><code>ESP_ERR_INVALID_ARG</code> <code>device</code> is <code>NULL</code></li>
+<li><code>ESP_ERR_NOT_SUPPORTED</code> I2C support is disabled in menuconfig</li>
+</ul>
+<hr />
+<h4 id="vigilant_i2c_remove_device-function"><code>vigilant_i2c_remove_device</code>, <strong>function</strong><a class="headerlink" href="#vigilant_i2c_remove_device-function" title="Permanent link">&para;</a></h4>
+<p>Removes a previously added device from the I2C bus and clears its runtime handle.</p>
+<h6 id="parameters_1">Parameters:<a class="headerlink" href="#parameters_1" title="Permanent link">&para;</a></h6>
+<ul>
+<li><code>device</code> Pointer to the <code>VigilantI2CDevice</code> object to remove</li>
+</ul>
+<h6 id="returns_1">Returns:<a class="headerlink" href="#returns_1" title="Permanent link">&para;</a></h6>
+<ul>
+<li><code>ESP_OK</code> Device was removed successfully</li>
+<li><code>ESP_ERR_INVALID_ARG</code> <code>device</code> is <code>NULL</code> or the device was not added before</li>
+<li><code>ESP_ERR_NOT_SUPPORTED</code> I2C support is disabled in menuconfig</li>
+</ul>
+<hr />
+<h4 id="vigilant_i2c_set_reg8-function"><code>vigilant_i2c_set_reg8</code>, <strong>function</strong><a class="headerlink" href="#vigilant_i2c_set_reg8-function" title="Permanent link">&para;</a></h4>
+<p>Writes one 8-bit value to an 8-bit register on the selected I2C device.</p>
+<h6 id="parameters_2">Parameters:<a class="headerlink" href="#parameters_2" title="Permanent link">&para;</a></h6>
+<ul>
+<li><code>device</code> Pointer to the <code>VigilantI2CDevice</code> object to write to</li>
+<li><code>reg</code> Register address to transmit before the value byte</li>
+<li><code>value</code> Register value to write</li>
+</ul>
+<h6 id="returns_2">Returns:<a class="headerlink" href="#returns_2" title="Permanent link">&para;</a></h6>
+<ul>
+<li><code>ESP_OK</code> Register write succeeded</li>
+<li><code>ESP_ERR_INVALID_ARG</code> <code>device</code> is <code>NULL</code> or the device was not added</li>
+<li><code>ESP_ERR_NOT_SUPPORTED</code> I2C support is disabled in menuconfig</li>
+</ul>
+<hr />
+<h4 id="vigilant_i2c_read_reg8-function"><code>vigilant_i2c_read_reg8</code>, <strong>function</strong><a class="headerlink" href="#vigilant_i2c_read_reg8-function" title="Permanent link">&para;</a></h4>
+<p>Reads one 8-bit register from the selected I2C device.</p>
+<h6 id="parameters_3">Parameters:<a class="headerlink" href="#parameters_3" title="Permanent link">&para;</a></h6>
+<ul>
+<li><code>device</code> Pointer to the <code>VigilantI2CDevice</code> object to read from</li>
+<li><code>reg</code> Register address to transmit before reading</li>
+<li><code>value</code> Output buffer for the returned register value</li>
+</ul>
+<h6 id="returns_3">Returns:<a class="headerlink" href="#returns_3" title="Permanent link">&para;</a></h6>
+<ul>
+<li><code>ESP_OK</code> Register read succeeded</li>
+<li><code>ESP_ERR_INVALID_ARG</code> <code>device</code> is <code>NULL</code>, the device was not added, or <code>value</code> is <code>NULL</code></li>
+<li><code>ESP_ERR_NOT_SUPPORTED</code> I2C support is disabled in menuconfig</li>
+</ul>
+<hr />
+<h4 id="vigilant_i2c_whoami_check-function"><code>vigilant_i2c_whoami_check</code>, <strong>function</strong><a class="headerlink" href="#vigilant_i2c_whoami_check-function" title="Permanent link">&para;</a></h4>
+<p>Reads the register stored in <code>device-&gt;whoami_reg</code> and compares it against <code>device-&gt;expected_whoami</code>.</p>
+<h6 id="parameters_4">Parameters:<a class="headerlink" href="#parameters_4" title="Permanent link">&para;</a></h6>
+<ul>
+<li><code>device</code> Pointer to the <code>VigilantI2CDevice</code> object to validate</li>
+</ul>
+<h6 id="returns_4">Returns:<a class="headerlink" href="#returns_4" title="Permanent link">&para;</a></h6>
+<ul>
+<li><code>ESP_OK</code> WHOAMI value matches the expected value</li>
+<li><code>ESP_ERR_INVALID_ARG</code> <code>device</code> is <code>NULL</code> or the device was not added</li>
+<li><code>ESP_ERR_INVALID_RESPONSE</code> The device responded, but the WHOAMI value did not match</li>
+<li><code>ESP_ERR_NOT_SUPPORTED</code> I2C support is disabled in menuconfig</li>
+</ul>
+<h2 id="low-level-i2c-functions">Low-level I2C functions<a class="headerlink" href="#low-level-i2c-functions" title="Permanent link">&para;</a></h2>
+<p>These functions exist in the I2C component itself. In normal application code, prefer the
+<code>vigilant_i2c_*</code> wrappers.</p>
+<hr />
+<h4 id="i2c_init-function"><code>i2c_init</code>, <strong>function</strong><a class="headerlink" href="#i2c_init-function" title="Permanent link">&para;</a></h4>
+<p>Initializes the shared I2C master bus, configures the GPIO pins from menuconfig, and logs a bus scan.</p>
+<h6 id="returns_5">Returns:<a class="headerlink" href="#returns_5" title="Permanent link">&para;</a></h6>
+<ul>
+<li><code>ESP_OK</code> Bus is ready for use</li>
+<li>Any ESP-IDF error returned by <code>i2c_new_master_bus(...)</code></li>
+</ul>
+<hr />
+<h4 id="i2c_add_device-function"><code>i2c_add_device</code>, <strong>function</strong><a class="headerlink" href="#i2c_add_device-function" title="Permanent link">&para;</a></h4>
+<p>Low-level variant of <code>vigilant_i2c_add_device(...)</code>. Adds a device to the bus using the provided device object.</p>
+<hr />
+<h4 id="i2c_remove_device-function"><code>i2c_remove_device</code>, <strong>function</strong><a class="headerlink" href="#i2c_remove_device-function" title="Permanent link">&para;</a></h4>
+<p>Low-level variant of <code>vigilant_i2c_remove_device(...)</code>. Removes a device and clears its handle.</p>
+<hr />
+<h4 id="i2c_set_reg8-function"><code>i2c_set_reg8</code>, <strong>function</strong><a class="headerlink" href="#i2c_set_reg8-function" title="Permanent link">&para;</a></h4>
+<p>Low-level variant of <code>vigilant_i2c_set_reg8(...)</code>. Writes one 8-bit register on a device.</p>
+<hr />
+<h4 id="i2c_read_reg8-function"><code>i2c_read_reg8</code>, <strong>function</strong><a class="headerlink" href="#i2c_read_reg8-function" title="Permanent link">&para;</a></h4>
+<p>Low-level variant of <code>vigilant_i2c_read_reg8(...)</code>. Reads one 8-bit register from a device.</p>
+<hr />
+<h4 id="i2c_whoami_check-function"><code>i2c_whoami_check</code>, <strong>function</strong><a class="headerlink" href="#i2c_whoami_check-function" title="Permanent link">&para;</a></h4>
+<p>Low-level variant of <code>vigilant_i2c_whoami_check(...)</code>. Compares the returned WHOAMI value with the expected one.</p>
+<hr />
+<h4 id="i2c_deinit-function"><code>i2c_deinit</code>, <strong>function</strong><a class="headerlink" href="#i2c_deinit-function" title="Permanent link">&para;</a></h4>
+<p>Deletes the shared I2C master bus. This is mainly intended for cleanup and is usually not needed in normal
+application startup flow.</p>
+<h2 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h2>
+<pre><code class="language-c">VigilantI2CDevice accel = {
+    .address = 0x18,
+    .whoami_reg = 0x0F,
+    .expected_whoami = 0x33,
+    .handle = NULL,
+};
+
+ESP_ERROR_CHECK(vigilant_i2c_add_device(&amp;accel));
+ESP_ERROR_CHECK(vigilant_i2c_whoami_check(&amp;accel));
+ESP_ERROR_CHECK(vigilant_i2c_set_reg8(&amp;accel, 0x20, 0x57));
+
+uint8_t ctrl_reg = 0;
+ESP_ERROR_CHECK(vigilant_i2c_read_reg8(&amp;accel, 0x20, &amp;ctrl_reg));
+</code></pre>
+<p>Use the device-specific address, register map, and expected WHOAMI value from your peripheral datasheet.</p>
+<h2 id="notes">Notes<a class="headerlink" href="#notes" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>vigilant_i2c_set_reg8(...)</code> and <code>vigilant_i2c_read_reg8(...)</code> operate on one 8-bit register at a time</li>
+<li>The I2C bus is shared, so multiple devices can be added as separate <code>VigilantI2CDevice</code> objects</li>
+<li><code>vigilant_i2c_add_device(...)</code> must be called before any read, write, or WHOAMI check</li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../peripherals/" class="btn btn-neutral float-left" title="Peripherals"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../troubleshooting/" class="btn btn-neutral float-right" title="Troubleshooting">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../peripherals/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../troubleshooting/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

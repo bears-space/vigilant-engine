@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Firmware Features - Vigilant Engine Documentation</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Firmware Features";
+        var mkdocs_page_input_path = "features.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> Vigilant Engine Documentation
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../getting-started/">Getting Started</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../build-flash/">Build & Flash</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../project-layout/">Project Layout</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Firmware Features</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#ota-updates">OTA updates</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#network-modes">Network modes</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#web-server">Web server</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#debugging-and-logging">Debugging and logging</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#recovery-app">Recovery app</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../config/">Configuration</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../recovery-ota/">Recovery & OTA</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../peripherals/">Peripherals</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../i2c-interface/">I2C Interface</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../troubleshooting/">Troubleshooting</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../partitions/">Partition Table</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../flash-helper/">Flash Helper</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">Vigilant Engine Documentation</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Firmware Features</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="firmware-features">Firmware Features<a class="headerlink" href="#firmware-features" title="Permanent link">&para;</a></h1>
+<p>Vigilant Engine provides a common set of capabilities intended to be reused across STARSTREAK nodes.</p>
+<h2 id="ota-updates">OTA updates<a class="headerlink" href="#ota-updates" title="Permanent link">&para;</a></h2>
+<ul>
+<li>HTTP/Web-based firmware updates</li>
+<li>Designed for safe, recoverable update flow</li>
+</ul>
+<h2 id="network-modes">Network modes<a class="headerlink" href="#network-modes" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>AP</code>: Device hosts its own access point</li>
+<li><code>STA</code>: Device connects to an existing Wi-Fi network</li>
+<li><code>APSTA</code>: Dual mode</li>
+</ul>
+<h2 id="web-server">Web server<a class="headerlink" href="#web-server" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Configuration and status pages</li>
+<li>OTA firmware upload endpoint</li>
+<li>Endpoint structure intended to be extended per project</li>
+</ul>
+<h2 id="debugging-and-logging">Debugging and logging<a class="headerlink" href="#debugging-and-logging" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Wireless logging over network (websocket, visible on the dashboard)</li>
+<li>Centralized logging API for modules</li>
+<li>Status LED</li>
+</ul>
+<h2 id="recovery-app">Recovery app<a class="headerlink" href="#recovery-app" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Boots when the main app boot-loops</li>
+<li>Provides the OTA functionality</li>
+<li>WebUI for intuitive flashing</li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../project-layout/" class="btn btn-neutral float-left" title="Project Layout"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../config/" class="btn btn-neutral float-right" title="Configuration">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../project-layout/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../config/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
