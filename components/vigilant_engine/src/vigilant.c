@@ -16,6 +16,7 @@
 #include "http_server.h"
 #include "i2c.h"
 #include "lwip/inet.h"
+#include "master.h"
 #include "nvs_flash.h"
 #include "sdkconfig.h"
 #include "status_led.h"
@@ -266,6 +267,17 @@ esp_err_t vigilant_init(VigilantConfig VgConfig) {
         return ret;
     }
     ESP_LOGI(TAG, "HTTP server started successfully");
+
+    if (VgConfig.is_master) {
+        ESP_LOGI(TAG, "Starting HTTP client task for master mode");
+        ret = init_master_mode();
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "init_master_mode failed: %s", esp_err_to_name(ret));
+            initializedSuccessfully = false;
+            return ret;
+        }
+        ESP_LOGI(TAG, "HTTP client task for master mode started successfully");
+    }
 
 #if CONFIG_VE_ENABLE_I2C
     ESP_LOGI(TAG, "I2C is enabled in config; initializing bus");
