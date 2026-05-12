@@ -1,23 +1,22 @@
 # Build & Flash
 
 Vigilant Engine uses a two-partition layout with a recovery firmware in `factory` and the main
-firmware in `ota_0`. To avoid accidentally overwriting recovery, use `flash.py` instead of
-`idf.py flash`.
+firmware in `ota_0`. For flashing individual partitions, use the `flash.py` helper script, otherwise just use the built-in `idf.py` flasher,  to flash both partitions.
 
-## Build main firmware
-
+## Build firmware
+The following command builds both partitions:
 ```sh
 idf.py build
 ```
 
-## Build recovery firmware
-
+## Flashing
+To flash, use the following command, or press the `flash` button in vs-code:
 ```sh
-cd vigilant-engine-recovery
-idf.py build
+idf.py flash
 ```
+If you want to flash just individual partitions, use the following commands:
 
-## Flash main firmware (recommended)
+## Flash main firmware
 
 Windows:
 
@@ -45,7 +44,7 @@ Linux/macOS:
 python3 ./flash.py recovery --port /dev/ttyACM0
 ```
 
-## Common options
+## Common options for `flash.py`
 
 - `--port` (required): Serial port for the device
 - `--baud` (optional): Default is `921600`
