@@ -38,9 +38,21 @@ typedef struct {
     uint8_t detected_devices[16];  // 7-bit addresses detected on the bus
 } VigilantI2cInfo;
 
+typedef struct {
+    NW_MODE network_mode;
+    char mac[18];               // e.g. "AA:BB:CC:DD:EE:FF"
+    char ap_ssid[33];           // configured AP SSID (null-terminated)
+    char sta_ssid[33];          // configured STA SSID (null-terminated)
+    char ip_sta[16];            // current STA IPv4 (or "0.0.0.0")
+    char ip_ap[16];             // current AP IPv4 (or "0.0.0.0")
+    uint8_t connected_devices;  // number of currently connected WiFi clients
+                                // (for AP mode)
+} VigilantWiFiInfo;
+
 esp_err_t vigilant_init(VigilantConfig VgConfig);
 esp_err_t vigilant_get_info(VigilantInfo* info);
 esp_err_t vigilant_get_i2cinfo(VigilantI2cInfo* info);
+esp_err_t vigilant_get_wifiinfo(VigilantWiFiInfo* info);
 esp_err_t vigilant_i2c_add_device(VigilantI2CDevice* device);
 esp_err_t vigilant_i2c_remove_device(VigilantI2CDevice* device);
 esp_err_t vigilant_i2c_set_reg8(VigilantI2CDevice* device, uint8_t reg,
