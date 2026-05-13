@@ -342,6 +342,153 @@ esp_err_t vigilant_get_info(VigilantInfo* info) {
     return ESP_OK;
 }
 
+static size_t bounded_u8_strlen(const uint8_t* s, size_t max_len) {
+    size_t len = 0;
+    while (len < max_len && s[len] != 0) {
+        len++;
+    }
+    return len;
+}
+
+static void copy_ssid(char* dst, size_t dst_size, const uint8_t* src,
+                      size_t src_len) {
+    if (!dst || dst_size == 0) {
+        return;
+    }
+
+    dst[0] = '\0';
+
+    if (!src) {
+        return;
+    }
+
+    if (src_len >= dst_size) {
+        src_len = dst_size - 1;
+    }
+
+    memcpy(dst, src, src_len);
+    dst[src_len] = '\0';
+}
+
+static void set_ipv4_or_zero(char* dst, size_t dst_size, esp_netif_t* netif) {
+    if (!dst || dst_size == 0) {
+        return;
+    }
+
+    snprintf(dst, dst_size, "0.0.0.0");
+
+    if (!netif) {
+        return;
+    }
+
+    esp_netif_ip_info_t ip_info = {0};
+
+    if (esp_netif_get_ip_info(netif, &ip_info) == ESP_OK) {
+        snprintf(dst, dst_size, IPSTR, IP2STR(&ip_info.ip));
+    }
+}
+
+static NW_MODE map_wifi_mode(wifi_mode_t mode) { return (NW_MODE)mode; }
+
+esp_err_t vigilant_get_wifiinfo(VigilantWiFiInfo* info) {
+    if (!info) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    memset(info, 0, sizeof(*info));
+
+    snprintf(info->mac, sizeof(info->mac), "00:00:00:00:00:00");
+    snprintf(info->ip_sta, sizeof(info->ip_sta), "0.0.0.0");
+    snprintf(info->ip_ap, sizeof(info->ip_ap), "0.0.0.0");
+
+    wifi_mode_t mode = WIFI_MODE_NULL;
+    esp_err_t err = esp_wifi_get_mode(&mode);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    info->network_mode = map_wifi_mode(mode);
+
+    /*
+     * One displayed MAC only:
+     * - AP-only: use AP MAC
+     * - STA/APSTA/NULL: use STA MAC as primary device MAC
+     */
+    uint8_t mac[6] = {0};
+    wifi_interface_t mac_if = (mode == WIFI_MODE_AP) ? WIFI_IF_AP : WIFI_IF_STA;
+
+    err = esp_wifi_get_mac(mac_if, mac);
+    if (err != ESP_OK && mac_if != WIFI_IF_AP) {
+        err = esp_wifi_get_mac(WIFI_IF_AP, mac);
+    }
+
+    if (err == ESP_OK) {
+        snprintf(info->mac, sizeof(info->mac), "%02X:%02X:%02X:%02X:%02X:%02X",
+                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    }
+
+    /*
+     * Configured STA SSID.
+     * esp_wifi_get_config() fails if that interface is not enabled,
+     * so ignore the error here and leave the field empty.
+     */
+    if (mode == WIFI_MODE_STA || mode == WIFI_MODE_APSTA) {
+        wifi_config_t sta_cfg = {0};
+
+        if (esp_wifi_get_config(WIFI_IF_STA, &sta_cfg) == ESP_OK) {
+            size_t sta_ssid_len =
+                bounded_u8_strlen(sta_cfg.sta.ssid, sizeof(sta_cfg.sta.ssid));
+
+            copy_ssid(info->sta_ssid, sizeof(info->sta_ssid), sta_cfg.sta.ssid,
+                      sta_ssid_len);
+        }
+    }
+
+    /*
+     * Configured SoftAP SSID.
+     */
+    if (mode == WIFI_MODE_AP || mode == WIFI_MODE_APSTA) {
+        wifi_config_t ap_cfg = {0};
+
+        if (esp_wifi_get_config(WIFI_IF_AP, &ap_cfg) == ESP_OK) {
+            size_t ap_ssid_len = ap_cfg.ap.ssid_len;
+
+            if (ap_ssid_len == 0) {
+                ap_ssid_len =
+                    bounded_u8_strlen(ap_cfg.ap.ssid, sizeof(ap_cfg.ap.ssid));
+            }
+
+            copy_ssid(info->ap_ssid, sizeof(info->ap_ssid), ap_cfg.ap.ssid,
+                      ap_ssid_len);
+        }
+    }
+
+    /*
+     * Current IPv4 addresses.
+     * This assumes default Wi-Fi netifs were created with:
+     *   esp_netif_create_default_wifi_sta()
+     *   esp_netif_create_default_wifi_ap()
+     */
+    esp_netif_t* sta_netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    esp_netif_t* ap_netif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
+
+    set_ipv4_or_zero(info->ip_sta, sizeof(info->ip_sta), sta_netif);
+    set_ipv4_or_zero(info->ip_ap, sizeof(info->ip_ap), ap_netif);
+
+    /*
+     * Number of currently associated SoftAP clients.
+     */
+    if (mode == WIFI_MODE_AP || mode == WIFI_MODE_APSTA) {
+        wifi_sta_list_t sta_list = {0};
+
+        if (esp_wifi_ap_get_sta_list(&sta_list) == ESP_OK) {
+            info->connected_devices = (uint8_t)sta_list.num;
+        }
+    }
+
+    return ESP_OK;
+}
+
 esp_err_t vigilant_get_i2cinfo(VigilantI2cInfo* info) {
     if (!info) {
         return ESP_ERR_INVALID_ARG;

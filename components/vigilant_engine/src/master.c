@@ -31,6 +31,8 @@ static void http_fetch_task(void* arg) {
 
     while (true) {
         // get connected wifi devices
+        VigilantWiFiInfo wifi_info;
+        vigilant_get_wifiinfo(&wifi_info);
 
         esp_http_client_config_t config = {
             .url = "http://example.com/api/status",

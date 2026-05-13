@@ -351,6 +351,24 @@ static esp_err_t wifiinfo_get_handler(httpd_req_t* req) {
                             "Failed to fetch wifi info");
         return err;
     }
+
+    httpd_resp_set_type(req, "application/json");
+    char payload[384];
+    int written = snprintf(
+        payload, sizeof(payload),
+        "{\"network_mode\":%d,\"mac\":\"%s\",\"ap_ssid\":\"%s\",\"sta_ssid\":"
+        "\"%s\",\"ip_sta\":\"%s\",\"ip_ap\":\"%s\",\"connected_devices\":%u}",
+        (int)info.network_mode, info.mac, info.ap_ssid, info.sta_ssid,
+        info.ip_sta, info.ip_ap, (unsigned int)info.connected_devices);
+
+    if (written < 0 || written >= (int)sizeof(payload)) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
+                            "Info too large");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_send(req, payload, written);
+    return ESP_OK;
 }
 
 static const httpd_uri_t i2cinfo_uri = {
