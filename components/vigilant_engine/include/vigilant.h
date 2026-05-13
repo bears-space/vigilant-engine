@@ -39,14 +39,23 @@ typedef struct {
 } VigilantI2cInfo;
 
 typedef struct {
+    bool is_vigilant_device;  // true if this device is recognized as a Vigilant
+                              // WiFi client
+    char name[32];
+    uint32_t address;
+} VigilantWifiDevice;
+
+typedef struct {
     NW_MODE network_mode;
-    char mac[18];               // e.g. "AA:BB:CC:DD:EE:FF"
-    char ap_ssid[33];           // configured AP SSID (null-terminated)
-    char sta_ssid[33];          // configured STA SSID (null-terminated)
-    char ip_sta[16];            // current STA IPv4 (or "0.0.0.0")
-    char ip_ap[16];             // current AP IPv4 (or "0.0.0.0")
-    uint8_t connected_devices;  // number of currently connected WiFi clients
-                                // (for AP mode)
+    char mac[18];                     // e.g. "AA:BB:CC:DD:EE:FF"
+    char ap_ssid[33];                 // configured AP SSID (null-terminated)
+    char sta_ssid[33];                // configured STA SSID (null-terminated)
+    char ip_sta[16];                  // current STA IPv4 (or "0.0.0.0")
+    char ip_ap[16];                   // current AP IPv4 (or "0.0.0.0")
+    uint8_t connected_devices_count;  // number of currently connected WiFi
+                                      // clients (for AP mode)
+    VigilantWifiDevice connected_devices[];
+
 } VigilantWiFiInfo;
 
 esp_err_t vigilant_init(VigilantConfig VgConfig);

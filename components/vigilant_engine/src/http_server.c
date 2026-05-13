@@ -357,9 +357,10 @@ static esp_err_t wifiinfo_get_handler(httpd_req_t* req) {
     int written = snprintf(
         payload, sizeof(payload),
         "{\"network_mode\":%d,\"mac\":\"%s\",\"ap_ssid\":\"%s\",\"sta_ssid\":"
-        "\"%s\",\"ip_sta\":\"%s\",\"ip_ap\":\"%s\",\"connected_devices\":%u}",
+        "\"%s\",\"ip_sta\":\"%s\",\"ip_ap\":\"%s\",\"connected_devices_count\":"
+        "%u}",
         (int)info.network_mode, info.mac, info.ap_ssid, info.sta_ssid,
-        info.ip_sta, info.ip_ap, (unsigned int)info.connected_devices);
+        info.ip_sta, info.ip_ap, (unsigned int)info.connected_devices_count);
 
     if (written < 0 || written >= (int)sizeof(payload)) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,

@@ -34,6 +34,19 @@ static void http_fetch_task(void* arg) {
         VigilantWiFiInfo wifi_info;
         vigilant_get_wifiinfo(&wifi_info);
 
+        if (wifi_info.connected_devices_count > 0) {
+            ESP_LOGI(TAG, "Starting polling for %d connected devices",
+                     wifi_info.connected_devices_count);
+        } else {
+            ESP_LOGI(TAG, "No connected WiFi devices");
+        }
+
+        for (size_t i = 0; i < wifi_info.connected_devices_count; i++) {
+            ESP_LOGI(TAG, "Connected device %zu: -", i + 1);
+        }
+
+        /*
+
         esp_http_client_config_t config = {
             .url = "http://example.com/api/status",
             .event_handler = http_event_handler,
@@ -54,6 +67,7 @@ static void http_fetch_task(void* arg) {
         }
 
         esp_http_client_cleanup(client);
+        */
 
         vTaskDelayUntil(&last_wake, interval);
     }

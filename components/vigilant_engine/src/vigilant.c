@@ -482,7 +482,7 @@ esp_err_t vigilant_get_wifiinfo(VigilantWiFiInfo* info) {
         wifi_sta_list_t sta_list = {0};
 
         if (esp_wifi_ap_get_sta_list(&sta_list) == ESP_OK) {
-            info->connected_devices = (uint8_t)sta_list.num;
+            info->connected_devices_count = (uint8_t)sta_list.num;
         }
     }
 
