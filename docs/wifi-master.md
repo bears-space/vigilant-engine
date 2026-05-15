@@ -46,3 +46,7 @@ as `other` and are probed less often, which prevents phones and laptops on the s
 - `is_vigilant_device`: compatibility boolean
 - `mac`
 - `address_ip`
+
+The main dashboard's Connected Devices page includes those WiFi clients next to the local bus devices. When a client is
+identified as Vigilant, the dashboard can fetch its `/info` data through the master and request `/rebootfactory` on that
+client so it reboots into recovery.

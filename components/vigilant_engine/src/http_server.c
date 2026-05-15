@@ -2,12 +2,17 @@
 
 #include "http_server.h"
 
+#include <errno.h>
 #include <esp_system.h>
 #include <esp_wifi.h>
 #include <inttypes.h>
+#include <netinet/in.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/param.h>
+#include <sys/socket.h>
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
@@ -35,6 +40,18 @@ static httpd_handle_t s_server = NULL;  // unser globaler Server-Handle
 #define VE_HTTPD_MAX_OPEN_SOCKETS 7
 #endif
 
+#define VE_REMOTE_HTTP_TIMEOUT_MS 1500
+#define VE_REMOTE_HTTP_RESPONSE_BUFFER_SIZE 1536
+#define VE_REMOTE_HTTP_BODY_BUFFER_SIZE 1024
+#define VE_REMOTE_HTTP_PORT 80
+
+typedef struct {
+    int status_code;
+    char body[VE_REMOTE_HTTP_BODY_BUFFER_SIZE];
+    size_t body_len;
+    bool body_truncated;
+} VeRemoteHttpResponse;
+
 static int hex_nibble(char c) {
     if (c >= '0' && c <= '9') {
         return c - '0';
@@ -61,15 +78,16 @@ static const char* wifi_identity_to_string(
     }
 }
 
-static void uri_decode(char* dest, const char* src, size_t len) {
-    if (!dest || !src) {
+static void uri_decode(char* dest, size_t dest_size, const char* src,
+                       size_t len) {
+    if (!dest || dest_size == 0 || !src) {
         return;
     }
 
     size_t rd = 0;
     size_t wr = 0;
-    while (rd < len && src[rd] != '\0') {
-        if (src[rd] == '%' && (rd + 2) < len) {
+    while (rd < len && src[rd] != '\0' && wr + 1 < dest_size) {
+        if (src[rd] == '%' && (rd + 2) < len && wr + 1 < dest_size) {
             int hi = hex_nibble(src[rd + 1]);
             int lo = hex_nibble(src[rd + 2]);
             if (hi >= 0 && lo >= 0) {
@@ -83,6 +101,211 @@ static void uri_decode(char* dest, const char* src, size_t len) {
     }
 
     dest[wr] = '\0';
+}
+
+static esp_err_t query_param_decoded(httpd_req_t* req, const char* key,
+                                     char* dest, size_t dest_size) {
+    if (!req || !key || !dest || dest_size == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    dest[0] = '\0';
+    size_t query_len = httpd_req_get_url_query_len(req) + 1;
+    if (query_len <= 1) {
+        return ESP_ERR_NOT_FOUND;
+    }
+
+    char* query = malloc(query_len);
+    ESP_RETURN_ON_FALSE(query, ESP_ERR_NO_MEM, TAG, "query alloc failed");
+
+    esp_err_t err = httpd_req_get_url_query_str(req, query, query_len);
+    if (err == ESP_OK) {
+        char encoded[HTTP_QUERY_KEY_MAX_LEN] = {0};
+        err = httpd_query_key_value(query, key, encoded, sizeof(encoded));
+        if (err == ESP_OK) {
+            uri_decode(dest, dest_size, encoded,
+                       strnlen(encoded, sizeof(encoded)));
+        }
+    }
+
+    free(query);
+    return err;
+}
+
+static int parse_http_status_code(const char* response) {
+    if (!response || strncmp(response, "HTTP/", 5) != 0) {
+        return 0;
+    }
+
+    const char* status_start = strchr(response, ' ');
+    if (!status_start) {
+        return 0;
+    }
+
+    char* status_end = NULL;
+    long status = strtol(status_start + 1, &status_end, 10);
+    if (status_end == status_start + 1 || status < 100 || status > 999) {
+        return 0;
+    }
+
+    return (int)status;
+}
+
+static const char* find_http_body_start(const char* response) {
+    const char* crlf_end = strstr(response, "\r\n\r\n");
+    if (crlf_end) {
+        return crlf_end + 4;
+    }
+
+    const char* lf_end = strstr(response, "\n\n");
+    if (lf_end) {
+        return lf_end + 2;
+    }
+
+    return NULL;
+}
+
+static esp_err_t socket_send_all(int sock, const char* data, size_t len) {
+    size_t sent = 0;
+
+    while (sent < len) {
+        ssize_t written = send(sock, data + sent, len - sent, 0);
+        if (written < 0) {
+            return ESP_FAIL;
+        }
+
+        if (written == 0) {
+            return ESP_ERR_TIMEOUT;
+        }
+
+        sent += (size_t)written;
+    }
+
+    return ESP_OK;
+}
+
+static esp_err_t read_remote_response(int sock, char* response,
+                                      size_t response_size,
+                                      size_t* response_len,
+                                      bool* response_truncated) {
+    *response_len = 0;
+    *response_truncated = false;
+
+    while (*response_len < response_size - 1) {
+        ssize_t received = recv(sock, response + *response_len,
+                                response_size - *response_len - 1, 0);
+
+        if (received < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                break;
+            }
+
+            return ESP_FAIL;
+        }
+
+        if (received == 0) {
+            break;
+        }
+
+        *response_len += (size_t)received;
+        response[*response_len] = '\0';
+    }
+
+    if (*response_len == response_size - 1) {
+        *response_truncated = true;
+    }
+
+    return *response_len > 0 ? ESP_OK : ESP_ERR_TIMEOUT;
+}
+
+static esp_err_t remote_http_get(uint32_t address, const char* path,
+                                 VeRemoteHttpResponse* out) {
+    if (address == 0 || !path || path[0] != '/' || !out) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    memset(out, 0, sizeof(*out));
+
+    esp_ip4_addr_t ip = {.addr = address};
+    char host[16];
+    snprintf(host, sizeof(host), IPSTR, IP2STR(&ip));
+
+    char request[192];
+    int request_len = snprintf(request, sizeof(request),
+                               "GET %s HTTP/1.0\r\n"
+                               "Host: %s\r\n"
+                               "User-Agent: vigilant-engine-master\r\n"
+                               "Connection: close\r\n\r\n",
+                               path, host);
+    if (request_len < 0 || request_len >= (int)sizeof(request)) {
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+    if (sock < 0) {
+        return ESP_FAIL;
+    }
+
+    struct timeval timeout = {
+        .tv_sec = VE_REMOTE_HTTP_TIMEOUT_MS / 1000,
+        .tv_usec = (VE_REMOTE_HTTP_TIMEOUT_MS % 1000) * 1000,
+    };
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+
+    struct sockaddr_in dest_addr = {0};
+    dest_addr.sin_addr.s_addr = address;
+    dest_addr.sin_family = AF_INET;
+    dest_addr.sin_port = htons(VE_REMOTE_HTTP_PORT);
+
+    esp_err_t result = ESP_OK;
+    if (connect(sock, (struct sockaddr*)&dest_addr, sizeof(dest_addr)) != 0) {
+        result = ESP_FAIL;
+        goto cleanup;
+    }
+
+    result = socket_send_all(sock, request, (size_t)request_len);
+    if (result != ESP_OK) {
+        goto cleanup;
+    }
+
+    char response[VE_REMOTE_HTTP_RESPONSE_BUFFER_SIZE] = {0};
+    size_t response_len = 0;
+    bool response_truncated = false;
+    result = read_remote_response(sock, response, sizeof(response),
+                                  &response_len, &response_truncated);
+    if (result != ESP_OK) {
+        goto cleanup;
+    }
+
+    const char* body_start = find_http_body_start(response);
+    if (!body_start) {
+        result = ESP_FAIL;
+        goto cleanup;
+    }
+
+    out->status_code = parse_http_status_code(response);
+
+    size_t body_offset = (size_t)(body_start - response);
+    size_t body_available =
+        response_len > body_offset ? response_len - body_offset : 0;
+    size_t body_to_copy = body_available;
+    if (body_to_copy >= sizeof(out->body)) {
+        body_to_copy = sizeof(out->body) - 1;
+        out->body_truncated = true;
+    }
+
+    if (response_truncated && body_available >= sizeof(out->body) - 1) {
+        out->body_truncated = true;
+    }
+
+    memcpy(out->body, body_start, body_to_copy);
+    out->body_len = body_to_copy;
+    out->body[out->body_len] = '\0';
+
+cleanup:
+    close(sock);
+    return result;
 }
 
 static esp_err_t hello_get_handler(httpd_req_t* req) {
@@ -132,21 +355,21 @@ static esp_err_t hello_get_handler(httpd_req_t* req) {
             if (httpd_query_key_value(buf, "query1", param, sizeof(param)) ==
                 ESP_OK) {
                 ESP_LOGI(TAG, "Found URL query parameter => query1=%s", param);
-                uri_decode(dec_param, param,
+                uri_decode(dec_param, sizeof(dec_param), param,
                            strnlen(param, HTTP_QUERY_KEY_MAX_LEN));
                 ESP_LOGI(TAG, "Decoded query parameter => %s", dec_param);
             }
             if (httpd_query_key_value(buf, "query3", param, sizeof(param)) ==
                 ESP_OK) {
                 ESP_LOGI(TAG, "Found URL query parameter => query3=%s", param);
-                uri_decode(dec_param, param,
+                uri_decode(dec_param, sizeof(dec_param), param,
                            strnlen(param, HTTP_QUERY_KEY_MAX_LEN));
                 ESP_LOGI(TAG, "Decoded query parameter => %s", dec_param);
             }
             if (httpd_query_key_value(buf, "query2", param, sizeof(param)) ==
                 ESP_OK) {
                 ESP_LOGI(TAG, "Found URL query parameter => query2=%s", param);
-                uri_decode(dec_param, param,
+                uri_decode(dec_param, sizeof(dec_param), param,
                            strnlen(param, HTTP_QUERY_KEY_MAX_LEN));
                 ESP_LOGI(TAG, "Decoded query parameter => %s", dec_param);
             }
@@ -433,6 +656,134 @@ static esp_err_t wifiinfo_get_handler(httpd_req_t* req) {
     return ESP_OK;
 }
 
+static esp_err_t find_managed_wifi_device(httpd_req_t* req,
+                                          VigilantWifiDevice* out_device) {
+    char mac[HTTP_QUERY_KEY_MAX_LEN] = {0};
+    esp_err_t err = query_param_decoded(req, "mac", mac, sizeof(mac));
+    if (err != ESP_OK || mac[0] == '\0') {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    VigilantWiFiInfo info = {0};
+    err = vigilant_get_wifiinfo(&info);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    for (uint8_t i = 0; i < info.connected_devices_count; ++i) {
+        const VigilantWifiDevice* device = &info.connected_devices[i];
+        if (strcasecmp(device->mac, mac) != 0) {
+            continue;
+        }
+
+        if (!device->is_vigilant_device ||
+            device->identity != VIGILANT_WIFI_DEVICE_IDENTITY_VIGILANT) {
+            return ESP_ERR_INVALID_STATE;
+        }
+
+        if (device->address == 0) {
+            return ESP_ERR_INVALID_RESPONSE;
+        }
+
+        if (out_device) {
+            *out_device = *device;
+        }
+        return ESP_OK;
+    }
+
+    return ESP_ERR_NOT_FOUND;
+}
+
+static void send_plain_status(httpd_req_t* req, const char* status,
+                              const char* message) {
+    httpd_resp_set_type(req, "text/plain");
+    httpd_resp_set_status(req, status);
+    httpd_resp_sendstr(req, message);
+}
+
+static esp_err_t wifi_deviceinfo_get_handler(httpd_req_t* req) {
+    VigilantWifiDevice device = {0};
+    esp_err_t err = find_managed_wifi_device(req, &device);
+    if (err == ESP_ERR_INVALID_ARG) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
+                            "Missing or invalid mac query parameter");
+        return ESP_OK;
+    }
+    if (err == ESP_ERR_INVALID_STATE) {
+        httpd_resp_send_err(req, HTTPD_403_FORBIDDEN,
+                            "WiFi client is not a Vigilant device");
+        return ESP_OK;
+    }
+    if (err == ESP_ERR_NOT_FOUND) {
+        httpd_resp_send_err(req, HTTPD_404_NOT_FOUND,
+                            "WiFi client is not connected");
+        return ESP_OK;
+    }
+    if (err != ESP_OK) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
+                            "Failed to resolve WiFi client");
+        return ESP_OK;
+    }
+
+    VeRemoteHttpResponse remote = {0};
+    err = remote_http_get(device.address, "/info", &remote);
+    if (err != ESP_OK || remote.status_code != 200 || remote.body_len == 0 ||
+        remote.body_truncated) {
+        ESP_LOGW(TAG, "Failed to fetch /info from %s: err=%s status=%d",
+                 device.mac, esp_err_to_name(err), remote.status_code);
+        send_plain_status(req, "502 Bad Gateway",
+                          "Failed to fetch Vigilant client info");
+        return ESP_OK;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    httpd_resp_send(req, remote.body, (ssize_t)remote.body_len);
+    return ESP_OK;
+}
+
+static esp_err_t wifi_reboot_factory_post_handler(httpd_req_t* req) {
+    VigilantWifiDevice device = {0};
+    esp_err_t err = find_managed_wifi_device(req, &device);
+    if (err == ESP_ERR_INVALID_ARG) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
+                            "Missing or invalid mac query parameter");
+        return ESP_OK;
+    }
+    if (err == ESP_ERR_INVALID_STATE) {
+        httpd_resp_send_err(req, HTTPD_403_FORBIDDEN,
+                            "WiFi client is not a Vigilant device");
+        return ESP_OK;
+    }
+    if (err == ESP_ERR_NOT_FOUND) {
+        httpd_resp_send_err(req, HTTPD_404_NOT_FOUND,
+                            "WiFi client is not connected");
+        return ESP_OK;
+    }
+    if (err != ESP_OK) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
+                            "Failed to resolve WiFi client");
+        return ESP_OK;
+    }
+
+    VeRemoteHttpResponse remote = {0};
+    err = remote_http_get(device.address, "/rebootfactory", &remote);
+    if (err != ESP_OK || remote.status_code < 200 ||
+        remote.status_code >= 300) {
+        ESP_LOGW(TAG,
+                 "Failed to request recovery reboot from %s: err=%s status=%d",
+                 device.mac, esp_err_to_name(err), remote.status_code);
+        send_plain_status(req, "502 Bad Gateway",
+                          "Failed to request Vigilant client reboot");
+        return ESP_OK;
+    }
+
+    ESP_LOGI(TAG, "Requested recovery reboot from WiFi client %s", device.mac);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"ok\":true}");
+    return ESP_OK;
+}
+
 static const httpd_uri_t i2cinfo_uri = {
     .uri = "/i2cinfo",
     .method = HTTP_GET,
@@ -444,6 +795,20 @@ static const httpd_uri_t wifiinfo_uri = {
     .uri = "/wifiinfo",
     .method = HTTP_GET,
     .handler = wifiinfo_get_handler,
+    .user_ctx = NULL,
+};
+
+static const httpd_uri_t wifi_deviceinfo_uri = {
+    .uri = "/wifi/deviceinfo",
+    .method = HTTP_GET,
+    .handler = wifi_deviceinfo_get_handler,
+    .user_ctx = NULL,
+};
+
+static const httpd_uri_t wifi_reboot_factory_uri = {
+    .uri = "/wifi/rebootfactory",
+    .method = HTTP_POST,
+    .handler = wifi_reboot_factory_post_handler,
     .user_ctx = NULL,
 };
 
@@ -525,6 +890,8 @@ static httpd_handle_t start_webserver_internal(void) {
         httpd_register_uri_handler(server, &info_uri);
         httpd_register_uri_handler(server, &i2cinfo_uri);
         httpd_register_uri_handler(server, &wifiinfo_uri);
+        httpd_register_uri_handler(server, &wifi_deviceinfo_uri);
+        httpd_register_uri_handler(server, &wifi_reboot_factory_uri);
         websocket_register_handlers(server);
 
         // OTA-Handler registrieren
