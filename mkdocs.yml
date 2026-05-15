@@ -9,6 +9,7 @@ nav:
   - Project Layout: project-layout.md
   - Firmware Features: features.md
   - Configuration: config.md
+  - WiFi Master Mode: wifi-master.md
   - Recovery & OTA: recovery-ota.md
   - Peripherals: peripherals.md
   - I2C Interface: i2c-interface.md

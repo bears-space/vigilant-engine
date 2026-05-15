@@ -1,4 +1,4 @@
-set(requires esp-tls nvs_flash esp_netif esp_http_server esp_http_client driver esp_driver_gpio esp_driver_i2c)
+set(requires esp-tls nvs_flash esp_netif esp_http_server driver esp_driver_gpio esp_driver_i2c)
 idf_build_get_property(target IDF_TARGET)
 idf_build_get_property(build_dir BUILD_DIR)
 idf_build_get_property(ve_build_web VE_BUILD_WEB)
@@ -113,8 +113,11 @@ set(vigilant_engine_srcs
     "src/vigilant.c"
     "src/status_led.c"
     "src/websocket.c"
-    "src/master.c"
 )
+
+if(CONFIG_VE_ENABLE_WIFI_MASTER)
+    list(APPEND vigilant_engine_srcs "src/master.c")
+endif()
 
 if(CONFIG_VE_ENABLE_I2C)
     list(APPEND vigilant_engine_srcs "src/i2c.c")

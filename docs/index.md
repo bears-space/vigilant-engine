@@ -9,12 +9,14 @@ peripheral layer.
 - How to build and flash main and recovery firmware
 - The repo layout and where to add new features
 - Runtime capabilities such as OTA and network modes
+- Optional WiFi master mode for coordinating Vigilant clients
 - Peripheral support and integration patterns
 
 ## Quick links
 
 - Get started: [Getting Started](getting-started.md)
 - Build and flash: [Build & Flash](build-flash.md)
+- WiFi master mode: [WiFi Master Mode](wifi-master.md)
 - Recovery and OTA: [Recovery & OTA](recovery-ota.md)
 - I2C interface: [I2C Interface](i2c-interface.md)
 - Flash helper reference: [Flash Helper](flash-helper.md)

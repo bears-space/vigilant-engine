@@ -135,6 +135,16 @@ menu "Vigilant Engine Configuration: WiFi"
         default "starstreak"
         help
             The password for the WiFi Access Point (AP) mode of the Vigilant Engine.
+
+    config VE_ENABLE_WIFI_MASTER
+        bool "Enable WiFi master mode"
+        default n
+        help
+            Compile the Vigilant WiFi master polling task into this firmware.
+            Master mode lets a node running in APSTA mode probe clients on its
+            access point, identify other Vigilant Engine devices through the
+            Vigilant device magic, and cache their identity. Leave this disabled
+            for normal leaf devices to avoid compiling the HTTP polling code.
 endmenu
 
 menu "Vigilant Engine Configuration: I2C"

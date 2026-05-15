@@ -8,7 +8,8 @@ Runtime settings are configured in the main file like this:
 ```c
 VigilantConfig VgConfig = {
     .unique_component_name = "Vigilant ESP Test",
-    .network_mode = NW_MODE_APSTA
+    .network_mode = NW_MODE_APSTA,
+    .is_master = false
 };
 ```
 ### Available settings:
@@ -22,6 +23,12 @@ The network mode of the esp node.
 - `NW_MODE_APSTA` AP and STA mode
 - `NW_MODE_AP` AP mode
 - `NW_MODE_STA` STA mode
+___
+#### `is_master`, **bool**
+Starts WiFi master behavior when the firmware was built with `VE_ENABLE_WIFI_MASTER`.
+Master devices must use `NW_MODE_APSTA`, because they need both AP clients and STA networking.
+If `is_master` is `true` but `VE_ENABLE_WIFI_MASTER` is disabled in menuconfig, `vigilant_init()`
+returns `ESP_ERR_NOT_SUPPORTED`.
 ___
 ## Menuconfig Settings (Example / HTTP)
 ___
@@ -125,4 +132,13 @@ ___
 The password for the WiFi Access Point (AP) mode of the Vigilant Engine.
 
 **default**: `"starstreak"`
+___
+#### `VE_ENABLE_WIFI_MASTER`, **bool**
+Compile WiFi master mode into the firmware. When enabled, master-capable firmware can probe AP clients,
+recognize other Vigilant Engine devices using the `/info` magic, and expose cached identity in `/wifiinfo`.
+
+This setting only compiles the feature. The runtime `VigilantConfig.is_master` flag must also be set to
+`true` for the master polling task to start.
+
+**default**: `0`
 ___

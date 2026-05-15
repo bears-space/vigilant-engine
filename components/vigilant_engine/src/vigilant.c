@@ -20,9 +20,11 @@
 #include "http_server.h"
 #include "i2c.h"
 #include "lwip/inet.h"
-#include "master.h"
-#include "nvs_flash.h"
 #include "sdkconfig.h"
+#if CONFIG_VE_ENABLE_WIFI_MASTER
+#include "master.h"
+#endif
+#include "nvs_flash.h"
 #include "status_led.h"
 #include "websocket.h"
 
@@ -345,13 +347,20 @@ esp_err_t vigilant_init(VigilantConfig VgConfig) {
         true;  // Assume success until a failure occurs
     uint8_t mac[6];
 
-    // throw compiler error is is-master is true but network mode is not APSTA
-    // (since only APSTA supports both AP and STA)
-    if (VgConfig.is_master && VgConfig.network_mode != NW_MODE_APSTA) {
+    if (VgConfig.is_master) {
+        if (VgConfig.network_mode != NW_MODE_APSTA) {
+            ESP_LOGE(TAG,
+                     "Invalid configuration: is_master=true requires "
+                     "network_mode=NW_MODE_APSTA");
+            return ESP_ERR_INVALID_ARG;
+        }
+
+#if !CONFIG_VE_ENABLE_WIFI_MASTER
         ESP_LOGE(TAG,
                  "Invalid configuration: is_master=true requires "
-                 "network_mode=NW_MODE_APSTA");
-        return ESP_ERR_INVALID_ARG;
+                 "CONFIG_VE_ENABLE_WIFI_MASTER=y");
+        return ESP_ERR_NOT_SUPPORTED;
+#endif
     }
 
     ESP_LOGI(TAG, "Init NVS");
@@ -416,14 +425,16 @@ esp_err_t vigilant_init(VigilantConfig VgConfig) {
     ESP_LOGI(TAG, "HTTP server started successfully");
 
     if (VgConfig.is_master) {
-        ESP_LOGI(TAG, "Starting HTTP client task for master mode");
+#if CONFIG_VE_ENABLE_WIFI_MASTER
+        ESP_LOGI(TAG, "Starting WiFi master polling task");
         ret = init_master_mode();
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "init_master_mode failed: %s", esp_err_to_name(ret));
             initializedSuccessfully = false;
             return ret;
         }
-        ESP_LOGI(TAG, "HTTP client task for master mode started successfully");
+        ESP_LOGI(TAG, "WiFi master polling task started successfully");
+#endif
     }
 
 #if CONFIG_VE_ENABLE_I2C
