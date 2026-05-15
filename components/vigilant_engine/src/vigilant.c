@@ -1,6 +1,8 @@
 #include "vigilant.h"
 
+#include <stdio.h>
 #include <string.h>
+#include <strings.h>
 
 #include "esp_err.h"
 #include "esp_event.h"
@@ -13,6 +15,7 @@
 #include "esp_wifi.h"
 #include "esp_wifi_ap_get_sta_list.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "freertos/timers.h"
 #include "http_server.h"
 #include "i2c.h"
@@ -32,6 +35,17 @@ static esp_netif_t* s_netif_sta = NULL;
 static esp_netif_t* s_netif_ap = NULL;
 static VigilantConfig s_cfg = {0};
 static TimerHandle_t sta_reconnect_timer;
+typedef struct {
+    bool in_use;
+    char mac[18];
+    uint32_t address;
+    VigilantWifiDeviceIdentity identity;
+    char name[32];
+} VigilantWifiIdentityCacheEntry;
+
+static SemaphoreHandle_t s_wifi_identity_mutex = NULL;
+static VigilantWifiIdentityCacheEntry
+    s_wifi_identity_cache[VIGILANT_WIFI_MAX_CONNECTED_DEVICES] = {0};
 #if CONFIG_VE_ENABLE_I2C
 static VigilantI2CDevice s_i2c_devices[8] = {0};
 static size_t s_i2c_device_count = 0;
@@ -112,6 +126,131 @@ static void ap_cfg_fixup(wifi_config_t* cfg) {
     if (cfg->ap.password[0] == '\0') {
         cfg->ap.authmode = WIFI_AUTH_OPEN;
     }
+}
+
+static bool wifi_device_identity_is_valid(VigilantWifiDeviceIdentity identity) {
+    return identity == VIGILANT_WIFI_DEVICE_IDENTITY_UNKNOWN ||
+           identity == VIGILANT_WIFI_DEVICE_IDENTITY_VIGILANT ||
+           identity == VIGILANT_WIFI_DEVICE_IDENTITY_OTHER;
+}
+
+static void copy_string(char* dst, size_t dst_size, const char* src) {
+    if (!dst || dst_size == 0) {
+        return;
+    }
+
+    if (!src) {
+        dst[0] = '\0';
+        return;
+    }
+
+    snprintf(dst, dst_size, "%s", src);
+}
+
+static void format_mac_address(char* dst, size_t dst_size,
+                               const uint8_t mac[6]) {
+    if (!dst || dst_size == 0 || !mac) {
+        return;
+    }
+
+    snprintf(dst, dst_size, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1],
+             mac[2], mac[3], mac[4], mac[5]);
+}
+
+static esp_err_t wifi_identity_cache_init(void) {
+    if (s_wifi_identity_mutex) {
+        return ESP_OK;
+    }
+
+    s_wifi_identity_mutex = xSemaphoreCreateMutex();
+    if (!s_wifi_identity_mutex) {
+        return ESP_ERR_NO_MEM;
+    }
+
+    return ESP_OK;
+}
+
+static int wifi_identity_cache_find_locked(const char* mac) {
+    if (!mac || mac[0] == '\0') {
+        return -1;
+    }
+
+    for (size_t i = 0; i < VIGILANT_WIFI_MAX_CONNECTED_DEVICES; ++i) {
+        if (s_wifi_identity_cache[i].in_use &&
+            strcasecmp(s_wifi_identity_cache[i].mac, mac) == 0) {
+            return (int)i;
+        }
+    }
+
+    return -1;
+}
+
+static int wifi_identity_cache_free_slot_locked(void) {
+    for (size_t i = 0; i < VIGILANT_WIFI_MAX_CONNECTED_DEVICES; ++i) {
+        if (!s_wifi_identity_cache[i].in_use) {
+            return (int)i;
+        }
+    }
+
+    return 0;
+}
+
+static bool wifi_identity_cache_get(const char* mac,
+                                    VigilantWifiIdentityCacheEntry* out_entry) {
+    if (!mac || !out_entry || !s_wifi_identity_mutex) {
+        return false;
+    }
+
+    if (xSemaphoreTake(s_wifi_identity_mutex, portMAX_DELAY) != pdTRUE) {
+        return false;
+    }
+
+    int index = wifi_identity_cache_find_locked(mac);
+    if (index >= 0) {
+        *out_entry = s_wifi_identity_cache[index];
+    }
+
+    xSemaphoreGive(s_wifi_identity_mutex);
+    return index >= 0;
+}
+
+esp_err_t vigilant_update_wifi_device_identity(
+    const char* mac, uint32_t address, VigilantWifiDeviceIdentity identity,
+    const char* name) {
+    if (!mac || mac[0] == '\0' || !wifi_device_identity_is_valid(identity)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_err_t err = wifi_identity_cache_init();
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    if (xSemaphoreTake(s_wifi_identity_mutex, portMAX_DELAY) != pdTRUE) {
+        return ESP_ERR_TIMEOUT;
+    }
+
+    int index = wifi_identity_cache_find_locked(mac);
+    if (index < 0) {
+        index = wifi_identity_cache_free_slot_locked();
+        memset(&s_wifi_identity_cache[index], 0,
+               sizeof(s_wifi_identity_cache[index]));
+    }
+
+    VigilantWifiIdentityCacheEntry* entry = &s_wifi_identity_cache[index];
+    entry->in_use = true;
+    copy_string(entry->mac, sizeof(entry->mac), mac);
+    entry->address = address;
+    entry->identity = identity;
+
+    if (identity == VIGILANT_WIFI_DEVICE_IDENTITY_VIGILANT) {
+        copy_string(entry->name, sizeof(entry->name), name);
+    } else {
+        entry->name[0] = '\0';
+    }
+
+    xSemaphoreGive(s_wifi_identity_mutex);
+    return ESP_OK;
 }
 
 void reboot_to_recovery(void) {
@@ -234,6 +373,13 @@ esp_err_t vigilant_init(VigilantConfig VgConfig) {
 
     // Capture ESP-IDF logs early so they can be replayed to websocket clients
     websocket_init_log_capture();
+
+    ret = wifi_identity_cache_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize WiFi identity cache: %s",
+                 esp_err_to_name(ret));
+        initializedSuccessfully = false;
+    }
 
     ESP_ERROR_CHECK(esp_read_mac(mac, ESP_MAC_WIFI_STA));
     snprintf((char*)ap_cfg.ap.ssid, sizeof(ap_cfg.ap.ssid), "%s%02X%02X",
@@ -389,7 +535,18 @@ static void set_ipv4_or_zero(char* dst, size_t dst_size, esp_netif_t* netif) {
     }
 }
 
-static NW_MODE map_wifi_mode(wifi_mode_t mode) { return (NW_MODE)mode; }
+static NW_MODE map_wifi_mode(wifi_mode_t mode) {
+    switch (mode) {
+        case WIFI_MODE_AP:
+            return NW_MODE_AP;
+        case WIFI_MODE_STA:
+            return NW_MODE_STA;
+        case WIFI_MODE_APSTA:
+            return NW_MODE_APSTA;
+        default:
+            return NW_MODE_STA;
+    }
+}
 
 esp_err_t vigilant_get_wifiinfo(VigilantWiFiInfo* info) {
     if (!info) {
@@ -497,14 +654,25 @@ esp_err_t vigilant_get_wifiinfo(VigilantWiFiInfo* info) {
             for (uint8_t i = 0; i < connected_count; ++i) {
                 VigilantWifiDevice* device = &info->connected_devices[i];
                 const uint8_t* device_mac = sta_list.sta[i].mac;
+                VigilantWifiIdentityCacheEntry cached_identity = {0};
 
-                device->is_vigilant_device =
-                    NULL;  // we dont know the state of the device, so set to
-                           // NULL
-                snprintf(device->name, sizeof(device->name),
-                         "%02X:%02X:%02X:%02X:%02X:%02X", device_mac[0],
-                         device_mac[1], device_mac[2], device_mac[3],
-                         device_mac[4], device_mac[5]);
+                format_mac_address(device->mac, sizeof(device->mac),
+                                   device_mac);
+                copy_string(device->name, sizeof(device->name), device->mac);
+                device->identity = VIGILANT_WIFI_DEVICE_IDENTITY_UNKNOWN;
+                device->is_vigilant_device = false;
+
+                if (wifi_identity_cache_get(device->mac, &cached_identity)) {
+                    device->identity = cached_identity.identity;
+                    device->is_vigilant_device =
+                        cached_identity.identity ==
+                        VIGILANT_WIFI_DEVICE_IDENTITY_VIGILANT;
+
+                    if (cached_identity.name[0] != '\0') {
+                        copy_string(device->name, sizeof(device->name),
+                                    cached_identity.name);
+                    }
+                }
 
                 if (have_ip_list && i < ip_list.num) {
                     device->address = ip_list.sta[i].ip.addr;

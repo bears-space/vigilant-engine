@@ -48,6 +48,19 @@ static int hex_nibble(char c) {
     return -1;
 }
 
+static const char* wifi_identity_to_string(
+    VigilantWifiDeviceIdentity identity) {
+    switch (identity) {
+        case VIGILANT_WIFI_DEVICE_IDENTITY_VIGILANT:
+            return "vigilant";
+        case VIGILANT_WIFI_DEVICE_IDENTITY_OTHER:
+            return "other";
+        case VIGILANT_WIFI_DEVICE_IDENTITY_UNKNOWN:
+        default:
+            return "unknown";
+    }
+}
+
 static void uri_decode(char* dest, const char* src, size_t len) {
     if (!dest || !src) {
         return;
@@ -211,13 +224,18 @@ static esp_err_t info_get_handler(httpd_req_t* req) {
     }
 
     httpd_resp_set_type(req, "application/json");
-    char payload[256];
+    httpd_resp_set_hdr(req, VIGILANT_DEVICE_MAGIC_HEADER,
+                       VIGILANT_DEVICE_MAGIC);
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    char payload[512];
     int written = snprintf(
         payload, sizeof(payload),
-        "{\"name\":\"%s\",\"network_mode\":%d,\"mac\":\"%s\",\"ap_ssid\":\"%"
-        "s\",\"sta_ssid\":\"%s\",\"ip_sta\":\"%s\",\"ip_ap\":\"%s\"}",
-        info.unique_component_name, (int)info.network_mode, info.mac,
-        info.ap_ssid, info.sta_ssid, info.ip_sta, info.ip_ap);
+        "{\"name\":\"%s\",\"is_vigilant_device\":true,\"vigilant_magic\":\"%"
+        "s\",\"network_mode\":%d,\"mac\":\"%s\",\"ap_ssid\":\"%s\","
+        "\"sta_ssid\":\"%s\",\"ip_sta\":\"%s\",\"ip_ap\":\"%s\"}",
+        info.unique_component_name, VIGILANT_DEVICE_MAGIC,
+        (int)info.network_mode, info.mac, info.ap_ssid, info.sta_ssid,
+        info.ip_sta, info.ip_ap);
 
     if (written < 0 || written >= (int)sizeof(payload)) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
@@ -354,7 +372,7 @@ static esp_err_t wifiinfo_get_handler(httpd_req_t* req) {
 
     httpd_resp_set_type(req, "application/json");
     size_t payload_capacity =
-        384 + ((size_t)info.connected_devices_count * 128);
+        384 + ((size_t)info.connected_devices_count * 192);
     char* payload = calloc(1, payload_capacity);
     if (!payload) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
@@ -385,10 +403,12 @@ static esp_err_t wifiinfo_get_handler(httpd_req_t* req) {
 
         written = snprintf(
             payload + offset, payload_capacity - offset,
-            "%s{\"is_vigilant_device\":%s,\"name\":\"%s\",\"address\":%" PRIu32
-            ",\"address_ip\":\"" IPSTR "\"}",
+            "%s{\"is_vigilant_device\":%s,\"identity\":\"%s\",\"name\":\"%"
+            "s\",\"mac\":\"%s\",\"address\":%" PRIu32 ",\"address_ip\":\"" IPSTR
+            "\"}",
             i == 0 ? "" : ",", device->is_vigilant_device ? "true" : "false",
-            device->name, device->address, IP2STR(&ip));
+            wifi_identity_to_string(device->identity), device->name,
+            device->mac, device->address, IP2STR(&ip));
 
         if (written < 0 || written >= (int)(payload_capacity - offset)) {
             free(payload);
