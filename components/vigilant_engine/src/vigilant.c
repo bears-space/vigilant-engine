@@ -11,6 +11,7 @@
 #include "esp_partition.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
+#include "esp_wifi_ap_get_sta_list.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/timers.h"
 #include "http_server.h"
@@ -476,13 +477,37 @@ esp_err_t vigilant_get_wifiinfo(VigilantWiFiInfo* info) {
     set_ipv4_or_zero(info->ip_ap, sizeof(info->ip_ap), ap_netif);
 
     /*
-     * Number of currently associated SoftAP clients.
+     * Currently associated SoftAP clients.
      */
     if (mode == WIFI_MODE_AP || mode == WIFI_MODE_APSTA) {
         wifi_sta_list_t sta_list = {0};
 
         if (esp_wifi_ap_get_sta_list(&sta_list) == ESP_OK) {
-            info->connected_devices_count = (uint8_t)sta_list.num;
+            wifi_sta_mac_ip_list_t ip_list = {0};
+            bool have_ip_list = (esp_wifi_ap_get_sta_list_with_ip(
+                                     &sta_list, &ip_list) == ESP_OK);
+            uint8_t connected_count = (uint8_t)sta_list.num;
+
+            if (connected_count > VIGILANT_WIFI_MAX_CONNECTED_DEVICES) {
+                connected_count = VIGILANT_WIFI_MAX_CONNECTED_DEVICES;
+            }
+
+            info->connected_devices_count = connected_count;
+
+            for (uint8_t i = 0; i < connected_count; ++i) {
+                VigilantWifiDevice* device = &info->connected_devices[i];
+                const uint8_t* device_mac = sta_list.sta[i].mac;
+
+                device->is_vigilant_device = false;
+                snprintf(device->name, sizeof(device->name),
+                         "%02X:%02X:%02X:%02X:%02X:%02X", device_mac[0],
+                         device_mac[1], device_mac[2], device_mac[3],
+                         device_mac[4], device_mac[5]);
+
+                if (have_ip_list && i < ip_list.num) {
+                    device->address = ip_list.sta[i].ip.addr;
+                }
+            }
         }
     }
 

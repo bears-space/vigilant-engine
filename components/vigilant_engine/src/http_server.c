@@ -353,22 +353,63 @@ static esp_err_t wifiinfo_get_handler(httpd_req_t* req) {
     }
 
     httpd_resp_set_type(req, "application/json");
-    char payload[384];
+    size_t payload_capacity =
+        384 + ((size_t)info.connected_devices_count * 128);
+    char* payload = calloc(1, payload_capacity);
+    if (!payload) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
+                            "Out of memory");
+        return ESP_ERR_NO_MEM;
+    }
+
+    size_t offset = 0;
     int written = snprintf(
-        payload, sizeof(payload),
+        payload + offset, payload_capacity - offset,
         "{\"network_mode\":%d,\"mac\":\"%s\",\"ap_ssid\":\"%s\",\"sta_ssid\":"
         "\"%s\",\"ip_sta\":\"%s\",\"ip_ap\":\"%s\",\"connected_devices_count\":"
-        "%u}",
+        "%u,\"connected_devices\":[",
         (int)info.network_mode, info.mac, info.ap_ssid, info.sta_ssid,
         info.ip_sta, info.ip_ap, (unsigned int)info.connected_devices_count);
 
-    if (written < 0 || written >= (int)sizeof(payload)) {
+    if (written < 0 || written >= (int)(payload_capacity - offset)) {
+        free(payload);
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
                             "Info too large");
         return ESP_FAIL;
     }
+    offset += (size_t)written;
 
-    httpd_resp_send(req, payload, written);
+    for (uint8_t i = 0; i < info.connected_devices_count; ++i) {
+        VigilantWifiDevice* device = &info.connected_devices[i];
+        esp_ip4_addr_t ip = {.addr = device->address};
+
+        written = snprintf(
+            payload + offset, payload_capacity - offset,
+            "%s{\"is_vigilant_device\":%s,\"name\":\"%s\",\"address\":%" PRIu32
+            ",\"address_ip\":\"" IPSTR "\"}",
+            i == 0 ? "" : ",", device->is_vigilant_device ? "true" : "false",
+            device->name, device->address, IP2STR(&ip));
+
+        if (written < 0 || written >= (int)(payload_capacity - offset)) {
+            free(payload);
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
+                                "Info too large");
+            return ESP_FAIL;
+        }
+        offset += (size_t)written;
+    }
+
+    written = snprintf(payload + offset, payload_capacity - offset, "]}");
+    if (written < 0 || written >= (int)(payload_capacity - offset)) {
+        free(payload);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
+                            "Info too large");
+        return ESP_FAIL;
+    }
+    offset += (size_t)written;
+
+    httpd_resp_send(req, payload, (ssize_t)offset);
+    free(payload);
     return ESP_OK;
 }
 

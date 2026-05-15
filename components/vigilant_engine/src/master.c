@@ -2,6 +2,7 @@
 
 #include "esp_http_client.h"
 #include "esp_log.h"
+#include "esp_netif_ip_addr.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "vigilant.h"
@@ -28,10 +29,10 @@ static esp_err_t http_event_handler(esp_http_client_event_t* evt) {
 static void http_fetch_task(void* arg) {
     const TickType_t interval = pdMS_TO_TICKS(10000);  // every 10s
     TickType_t last_wake = xTaskGetTickCount();
+    VigilantWiFiInfo wifi_info;
 
     while (true) {
         // get connected wifi devices
-        VigilantWiFiInfo wifi_info;
         vigilant_get_wifiinfo(&wifi_info);
 
         if (wifi_info.connected_devices_count > 0) {
@@ -42,7 +43,11 @@ static void http_fetch_task(void* arg) {
         }
 
         for (size_t i = 0; i < wifi_info.connected_devices_count; i++) {
-            ESP_LOGI(TAG, "Connected device %zu: -", i + 1);
+            VigilantWifiDevice* device = &wifi_info.connected_devices[i];
+            esp_ip4_addr_t ip = {.addr = device->address};
+
+            ESP_LOGI(TAG, "Connected device %zu: %s at " IPSTR, i + 1,
+                     device->name, IP2STR(&ip));
         }
 
         /*

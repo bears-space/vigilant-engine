@@ -45,6 +45,8 @@ typedef struct {
     uint32_t address;
 } VigilantWifiDevice;
 
+#define VIGILANT_WIFI_MAX_CONNECTED_DEVICES 8
+
 typedef struct {
     NW_MODE network_mode;
     char mac[18];                     // e.g. "AA:BB:CC:DD:EE:FF"
@@ -54,7 +56,7 @@ typedef struct {
     char ip_ap[16];                   // current AP IPv4 (or "0.0.0.0")
     uint8_t connected_devices_count;  // number of currently connected WiFi
                                       // clients (for AP mode)
-    VigilantWifiDevice connected_devices[];
+    VigilantWifiDevice connected_devices[VIGILANT_WIFI_MAX_CONNECTED_DEVICES];
 
 } VigilantWiFiInfo;
 
