@@ -270,7 +270,8 @@ void app_main(void) {
              running->label, running->subtype, (unsigned long)running->address);
 
     wifi_init_softap();
-    esp_wifi_set_ps(WIFI_PS_NONE) start_http_server();
+    esp_wifi_set_ps(WIFI_PS_NONE);
+    start_http_server();
 
     // Keep main task alive
     while (true) {

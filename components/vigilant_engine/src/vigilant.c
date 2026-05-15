@@ -192,9 +192,9 @@ static esp_err_t wifi_apply_mode(NW_MODE mode, wifi_config_t* sta,
     }
 
     ESP_ERROR_CHECK(esp_wifi_start());
+    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
 
     if (mode == NW_MODE_STA || mode == NW_MODE_APSTA) {
-        ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
         ESP_ERROR_CHECK(esp_wifi_connect());  // AP-only: NICHT connecten
     }
 
@@ -498,7 +498,9 @@ esp_err_t vigilant_get_wifiinfo(VigilantWiFiInfo* info) {
                 VigilantWifiDevice* device = &info->connected_devices[i];
                 const uint8_t* device_mac = sta_list.sta[i].mac;
 
-                device->is_vigilant_device = false;
+                device->is_vigilant_device =
+                    NULL;  // we dont know the state of the device, so set to
+                           // NULL
                 snprintf(device->name, sizeof(device->name),
                          "%02X:%02X:%02X:%02X:%02X:%02X", device_mac[0],
                          device_mac[1], device_mac[2], device_mac[3],

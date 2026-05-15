@@ -48,31 +48,43 @@ static void http_fetch_task(void* arg) {
 
             ESP_LOGI(TAG, "Connected device %zu: %s at " IPSTR, i + 1,
                      device->name, IP2STR(&ip));
+
+            if (device->is_vigilant_device ||
+                device->is_vigilant_device ==
+                    0) {  // this doesnt make any sense
+
+                char url_buffer[64];
+                // Hier wird die IP-Adresse tatsächlich in den String
+                // geschrieben
+                snprintf(url_buffer, sizeof(url_buffer),
+                         "http://" IPSTR "/info", IP2STR(&ip));
+
+                esp_http_client_config_t config = {
+                    .url = url_buffer,
+                    .event_handler = http_event_handler,
+                    .timeout_ms = 5000,
+                };
+
+                esp_http_client_handle_t client = esp_http_client_init(&config);
+
+                esp_err_t err = esp_http_client_perform(client);
+
+                if (err == ESP_OK) {
+                    int status = esp_http_client_get_status_code(client);
+                    int length = esp_http_client_get_content_length(client);
+
+                    ESP_LOGI(TAG, "HTTP status=%d, length=%d", status, length);
+                } else {
+                    // we assume the device is not a vigilant device if we fail
+                    // to connect to it, but we dont want to mark it as
+                    // non-vigilant in case of transient network issues, so we
+                    // set it to NULL
+                    device->is_vigilant_device = NULL;
+                }
+
+                esp_http_client_cleanup(client);
+            }
         }
-
-        /*
-
-        esp_http_client_config_t config = {
-            .url = "http://example.com/api/status",
-            .event_handler = http_event_handler,
-            .timeout_ms = 5000,
-        };
-
-        esp_http_client_handle_t client = esp_http_client_init(&config);
-
-        esp_err_t err = esp_http_client_perform(client);
-
-        if (err == ESP_OK) {
-            int status = esp_http_client_get_status_code(client);
-            int length = esp_http_client_get_content_length(client);
-
-            ESP_LOGI(TAG, "HTTP status=%d, length=%d", status, length);
-        } else {
-            ESP_LOGE(TAG, "HTTP GET failed: %s", esp_err_to_name(err));
-        }
-
-        esp_http_client_cleanup(client);
-        */
 
         vTaskDelayUntil(&last_wake, interval);
     }
