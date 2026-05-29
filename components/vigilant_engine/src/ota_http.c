@@ -6,6 +6,8 @@
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 #include "esp_system.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "status_led.h"
 
 static const char* TAG_OTA = "ota_http";
@@ -17,6 +19,23 @@ extern const unsigned char update_html_end[] asm(
     "_binary_vigilant_html_end");  // HTML Vigilant File End
 
 #define OTA_RECV_BUF_SIZE 1024
+#define REBOOT_AFTER_RESPONSE_DELAY_MS 1000
+
+static void deferred_restart_task(void* arg) {
+    const char* reason = (const char*)arg;
+    ESP_LOGI(TAG_OTA, "Restarting after %s", reason ? reason : "request");
+    vTaskDelay(pdMS_TO_TICKS(REBOOT_AFTER_RESPONSE_DELAY_MS));
+    esp_restart();
+}
+
+static void schedule_restart(const char* reason) {
+    BaseType_t created = xTaskCreate(deferred_restart_task, "ve_restart", 2048,
+                                     (void*)reason, 5, NULL);
+    if (created != pdPASS) {
+        ESP_LOGW(TAG_OTA, "Failed to defer restart; restarting immediately");
+        esp_restart();
+    }
+}
 
 static esp_err_t reboot_factory_handler(httpd_req_t* req) {
     const esp_partition_t* factory = esp_partition_find_first(
@@ -29,20 +48,19 @@ static esp_err_t reboot_factory_handler(httpd_req_t* req) {
         return ESP_FAIL;
     }
 
-    httpd_resp_sendstr(req, "OK, rebooting to factory...");
-
-    vTaskDelay(pdMS_TO_TICKS(300));
     ESP_ERROR_CHECK(esp_ota_set_boot_partition(factory));
-    esp_restart();
+    httpd_resp_set_type(req, "text/plain");
+    httpd_resp_set_hdr(req, "Connection", "close");
+    httpd_resp_sendstr(req, "OK, rebooting to factory...");
+    schedule_restart("factory reboot");
     return ESP_OK;
 }
 
 static esp_err_t reboot_handler(httpd_req_t* req) {
     httpd_resp_set_type(req, "text/plain");
+    httpd_resp_set_hdr(req, "Connection", "close");
     httpd_resp_sendstr(req, "OK, rebooting...");
-
-    vTaskDelay(pdMS_TO_TICKS(250));
-    esp_restart();
+    schedule_restart("reboot");
     return ESP_OK;
 }
 

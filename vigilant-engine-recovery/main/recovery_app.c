@@ -26,9 +26,26 @@ static const char* TAG = "ve_recovery";
 
 // ---- OTA ----
 #define OTA_BUF_SIZE 2048
+#define REBOOT_AFTER_RESPONSE_DELAY_MS 1000
 
 extern const unsigned char index_html_start[] asm("_binary_index_html_start");
 extern const unsigned char index_html_end[] asm("_binary_index_html_end");
+
+static void deferred_restart_task(void* arg) {
+    const char* reason = (const char*)arg;
+    ESP_LOGI(TAG, "Restarting after %s", reason ? reason : "request");
+    vTaskDelay(pdMS_TO_TICKS(REBOOT_AFTER_RESPONSE_DELAY_MS));
+    esp_restart();
+}
+
+static void schedule_restart(const char* reason) {
+    BaseType_t created = xTaskCreate(deferred_restart_task, "ve_restart", 2048,
+                                     (void*)reason, 5, NULL);
+    if (created != pdPASS) {
+        ESP_LOGW(TAG, "Failed to defer restart; restarting immediately");
+        esp_restart();
+    }
+}
 
 static esp_err_t index_get_handler(httpd_req_t* req) {
     httpd_resp_set_type(req, "text/html");
@@ -107,19 +124,17 @@ static esp_err_t boot_post_handler(httpd_req_t* req) {
     ESP_LOGI(TAG, "Boot partition set to ota_0. Rebooting…");
 
     httpd_resp_set_type(req, "text/plain");
+    httpd_resp_set_hdr(req, "Connection", "close");
     httpd_resp_sendstr(req, "OK. Rebooting to ota_0...\n");
-
-    vTaskDelay(pdMS_TO_TICKS(250));
-    esp_restart();
+    schedule_restart("boot to ota_0");
     return ESP_OK;
 }
 
 static esp_err_t reboot_post_handler(httpd_req_t* req) {
     httpd_resp_set_type(req, "text/plain");
+    httpd_resp_set_hdr(req, "Connection", "close");
     httpd_resp_sendstr(req, "OK. Rebooting...\n");
-
-    vTaskDelay(pdMS_TO_TICKS(250));
-    esp_restart();
+    schedule_restart("reboot");
     return ESP_OK;
 }
 
@@ -231,10 +246,9 @@ static esp_err_t ota_post_handler(httpd_req_t* req) {
     ESP_LOGI(TAG, "OTA OK: wrote %d bytes. Rebooting to ota_0…", written_total);
 
     httpd_resp_set_type(req, "text/plain");
+    httpd_resp_set_hdr(req, "Connection", "close");
     httpd_resp_sendstr(req, "OK. Rebooting to ota_0...\n");
-
-    vTaskDelay(pdMS_TO_TICKS(250));
-    esp_restart();
+    schedule_restart("OTA update");
     return ESP_OK;
 }
 
