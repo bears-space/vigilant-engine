@@ -1,5 +1,6 @@
 #include "vigilant.h"
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
@@ -37,6 +38,7 @@ static esp_netif_t* s_netif_sta = NULL;
 static esp_netif_t* s_netif_ap = NULL;
 static VigilantConfig s_cfg = {0};
 static TimerHandle_t sta_reconnect_timer;
+static uint32_t s_sta_reconnect_delay_ms = CONFIG_VE_STA_RECONNECT_INTERVAL_MS;
 typedef struct {
     bool in_use;
     char mac[18];
@@ -56,7 +58,8 @@ static size_t s_i2c_device_count = 0;
 static wifi_config_t sta_cfg = {.sta = {
                                     .ssid = CONFIG_VE_STA_SSID,
                                     .password = CONFIG_VE_STA_PASSWORD,
-                                    .channel = 1,
+                                    .scan_method = WIFI_ALL_CHANNEL_SCAN,
+                                    .sort_method = WIFI_CONNECT_AP_BY_SIGNAL,
                                     .threshold.authmode = WIFI_AUTH_WPA2_PSK,
                                 }};
 
@@ -264,19 +267,81 @@ void reboot_to_recovery(void) {
     esp_restart();
 }
 
-static void sta_reconnect_callback(TimerHandle_t xTimer) { esp_wifi_connect(); }
+#define VE_STA_RECONNECT_MAX_INTERVAL_MS 30000
+
+static uint32_t sta_reconnect_base_interval_ms(void) {
+    uint32_t interval = CONFIG_VE_STA_RECONNECT_INTERVAL_MS > 0
+                            ? CONFIG_VE_STA_RECONNECT_INTERVAL_MS
+                            : 1000;
+    return interval > VE_STA_RECONNECT_MAX_INTERVAL_MS
+               ? VE_STA_RECONNECT_MAX_INTERVAL_MS
+               : interval;
+}
+
+static TickType_t pd_ms_at_least_one_tick(uint32_t ms) {
+    TickType_t ticks = pdMS_TO_TICKS(ms);
+    return ticks > 0 ? ticks : 1;
+}
+
+static void sta_reconnect_delay_reset(void) {
+    s_sta_reconnect_delay_ms = sta_reconnect_base_interval_ms();
+}
+
+static void sta_reconnect_delay_backoff(void) {
+    uint32_t next_delay = s_sta_reconnect_delay_ms * 2;
+    if (next_delay < s_sta_reconnect_delay_ms ||
+        next_delay > VE_STA_RECONNECT_MAX_INTERVAL_MS) {
+        next_delay = VE_STA_RECONNECT_MAX_INTERVAL_MS;
+    }
+    s_sta_reconnect_delay_ms = next_delay;
+}
+
+static void sta_schedule_reconnect(void) {
+    if (!sta_reconnect_timer) {
+        return;
+    }
+
+    uint32_t delay_ms = s_sta_reconnect_delay_ms;
+    if (xTimerChangePeriod(sta_reconnect_timer,
+                           pd_ms_at_least_one_tick(delay_ms), 0) == pdPASS) {
+        ESP_LOGI("wifi", "STA reconnect scheduled in %" PRIu32 " ms", delay_ms);
+        sta_reconnect_delay_backoff();
+    } else {
+        ESP_LOGW("wifi", "Failed to schedule STA reconnect");
+    }
+}
+
+static void sta_reconnect_callback(TimerHandle_t xTimer) {
+    (void)xTimer;
+    esp_err_t err = esp_wifi_connect();
+    if (err != ESP_OK) {
+        ESP_LOGW("wifi", "esp_wifi_connect failed: %s", esp_err_to_name(err));
+        sta_schedule_reconnect();
+    }
+}
 
 static void wifi_evt(void* arg, esp_event_base_t base, int32_t id, void* data) {
+    if (base == WIFI_EVENT && id == WIFI_EVENT_STA_CONNECTED) {
+        sta_reconnect_delay_reset();
+        if (sta_reconnect_timer) {
+            xTimerStop(sta_reconnect_timer, 0);
+        }
+    }
+
     if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
         wifi_event_sta_disconnected_t* e = (wifi_event_sta_disconnected_t*)data;
         ESP_LOGW("wifi", "STA disconnected, reason=%d", e->reason);
         status_led_set_state(STATUS_STATE_WARNING);
-        xTimerReset(sta_reconnect_timer, 0);
+        sta_schedule_reconnect();
     }
 
     if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* e = (ip_event_got_ip_t*)data;
         ESP_LOGI("wifi", "Got IP: " IPSTR, IP2STR(&e->ip_info.ip));
+        sta_reconnect_delay_reset();
+        if (sta_reconnect_timer) {
+            xTimerStop(sta_reconnect_timer, 0);
+        }
     }
 }
 
@@ -296,9 +361,14 @@ static esp_err_t wifi_init_once(void) {
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
                                                &wifi_evt, NULL));
 
-    sta_reconnect_timer = xTimerCreate(
-        "wifi_reconnect", pdMS_TO_TICKS(CONFIG_VE_STA_RECONNECT_INTERVAL_MS),
-        pdFALSE, (void*)0, sta_reconnect_callback);
+    sta_reconnect_delay_reset();
+    sta_reconnect_timer =
+        xTimerCreate("wifi_reconnect",
+                     pd_ms_at_least_one_tick(sta_reconnect_base_interval_ms()),
+                     pdFALSE, (void*)0, sta_reconnect_callback);
+    if (!sta_reconnect_timer) {
+        return ESP_ERR_NO_MEM;
+    }
 
     inited = true;
     return ESP_OK;

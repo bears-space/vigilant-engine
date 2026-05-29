@@ -197,23 +197,76 @@
           </dl>
 
           <div v-if="activeConnectedDevice.canManageRecovery" class="connected-actions">
-            <button
-              type="button"
-              class="btn-danger connected-action"
-              :disabled="remoteRecoveryBusyId === activeConnectedDevice.id"
-              @click="rebootConnectedDeviceToRecovery(activeConnectedDevice)"
-            >
-              {{
-                remoteRecoveryBusyId === activeConnectedDevice.id
-                  ? "Requesting Recovery..."
-                  : "Reboot to Recovery"
-              }}
-            </button>
+            <div class="remote-update" :key="`update-${activeConnectedDevice.id}`">
+              <label class="remote-file-control">
+                <input
+                  type="file"
+                  accept=".bin,application/octet-stream"
+                  :disabled="remoteActionBusy(activeConnectedDevice)"
+                  @change="onRemoteFirmwarePicked(activeConnectedDevice, $event)"
+                />
+                <span>{{ remoteFirmwareFileLabel(activeConnectedDevice) }}</span>
+              </label>
+              <button
+                type="button"
+                class="btn-primary connected-action"
+                :disabled="remoteActionBusy(activeConnectedDevice) || !remoteFirmwareFile(activeConnectedDevice)"
+                @click="flashConnectedDevice(activeConnectedDevice)"
+              >
+                {{ remoteActionKind(activeConnectedDevice) === "update" ? "Updating..." : "Flash OTA" }}
+              </button>
+            </div>
+
+            <div class="remote-command-grid">
+              <button
+                type="button"
+                class="btn-secondary connected-action"
+                :disabled="remoteActionBusy(activeConnectedDevice)"
+                @click="rebootConnectedDevice(activeConnectedDevice)"
+              >
+                {{ remoteActionKind(activeConnectedDevice) === "reboot" ? "Rebooting..." : "Reboot" }}
+              </button>
+              <button
+                type="button"
+                class="btn-danger connected-action"
+                :disabled="remoteActionBusy(activeConnectedDevice)"
+                @click="rebootConnectedDeviceToRecovery(activeConnectedDevice)"
+              >
+                {{ remoteActionKind(activeConnectedDevice) === "recovery" ? "Requesting..." : "Reboot to Recovery" }}
+              </button>
+              <button
+                type="button"
+                class="btn-secondary connected-action"
+                :disabled="remoteActionBusy(activeConnectedDevice)"
+                @click="bootConnectedDeviceFromRecovery(activeConnectedDevice)"
+              >
+                {{ remoteActionKind(activeConnectedDevice) === "boot" ? "Booting..." : "Boot from Recovery" }}
+              </button>
+            </div>
+
             <div
-              v-if="remoteActionDeviceId === activeConnectedDevice.id && remoteActionMessage"
+              v-if="remoteActionStatus(activeConnectedDevice)"
               class="connected-action-status"
+              :class="remoteActionStatusClass(activeConnectedDevice)"
             >
-              {{ remoteActionMessage }}
+              <div class="remote-status-line">
+                <span>{{ remoteActionStatus(activeConnectedDevice)?.label }}</span>
+                <span v-if="remoteActionStatus(activeConnectedDevice)?.progress !== undefined">
+                  {{ Math.round(remoteActionStatus(activeConnectedDevice)?.progress ?? 0) }}%
+                </span>
+              </div>
+              <div
+                v-if="remoteActionStatus(activeConnectedDevice)?.progress !== undefined"
+                class="remote-progress"
+              >
+                <div
+                  class="remote-progress-bar"
+                  :style="{ width: `${remoteActionStatus(activeConnectedDevice)?.progress ?? 0}%` }"
+                ></div>
+              </div>
+              <div class="remote-status-message">
+                {{ remoteActionStatus(activeConnectedDevice)?.message }}
+              </div>
             </div>
           </div>
         </div>
@@ -274,6 +327,8 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 type ProtocolId = "i2c" | "spi" | "canfd" | "wifi";
 type DeviceState = "added" | "detected" | "vigilant" | "other" | "unknown";
 type DeviceGroup = "added" | "detected" | "wifi";
+type RemoteActionKind = "update" | "reboot" | "recovery" | "boot";
+type RemoteActionPhase = "busy" | "success" | "error";
 type ConnectedDevice = {
   id: string;
   name: string;
@@ -341,6 +396,13 @@ type RemoteInfoState = {
   error?: string;
   data?: RemoteVigilantInfoResponse;
 };
+type RemoteActionState = {
+  kind: RemoteActionKind;
+  phase: RemoteActionPhase;
+  label: string;
+  message: string;
+  progress?: number;
+};
 
 const MAX_LOG_LINES = 200;
 const PING_INTERVAL_MS = 15000;
@@ -359,9 +421,8 @@ const connectedDevices = ref<ConnectedDevice[]>([]);
 const selectedConnectedDeviceId = ref("");
 const hoveredConnectedDeviceId = ref<string | null>(null);
 const remoteWifiInfoByDeviceId = ref<Record<string, RemoteInfoState>>({});
-const remoteRecoveryBusyId = ref<string | null>(null);
-const remoteActionDeviceId = ref<string | null>(null);
-const remoteActionMessage = ref("");
+const remoteFirmwareByDeviceId = ref<Record<string, File | undefined>>({});
+const remoteActionByDeviceId = ref<Record<string, RemoteActionState | undefined>>({});
 
 const overlayActive = ref(false);
 const proceeding = ref(false);
@@ -730,6 +791,12 @@ async function loadConnectedDevices() {
   remoteWifiInfoByDeviceId.value = Object.fromEntries(
     Object.entries(remoteWifiInfoByDeviceId.value).filter(([id]) => validDeviceIds.has(id))
   );
+  remoteFirmwareByDeviceId.value = Object.fromEntries(
+    Object.entries(remoteFirmwareByDeviceId.value).filter(([id]) => validDeviceIds.has(id))
+  );
+  remoteActionByDeviceId.value = Object.fromEntries(
+    Object.entries(remoteActionByDeviceId.value).filter(([id]) => validDeviceIds.has(id))
+  );
 
   if (!devices.length) {
     selectedConnectedDeviceId.value = "";
@@ -739,6 +806,74 @@ async function loadConnectedDevices() {
   if (!devices.some((device) => device.id === selectedConnectedDeviceId.value)) {
     selectedConnectedDeviceId.value = devices[0].id;
   }
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function remoteFirmwareFile(device: ConnectedDevice) {
+  return remoteFirmwareByDeviceId.value[device.id] ?? null;
+}
+
+function remoteFirmwareFileLabel(device: ConnectedDevice) {
+  const file = remoteFirmwareFile(device);
+  return file ? `${file.name} (${formatBytes(file.size)})` : "Select firmware .bin";
+}
+
+function remoteActionStatus(device: ConnectedDevice) {
+  return remoteActionByDeviceId.value[device.id] ?? null;
+}
+
+function remoteActionKind(device: ConnectedDevice) {
+  return remoteActionStatus(device)?.phase === "busy" ? remoteActionStatus(device)?.kind : null;
+}
+
+function remoteActionBusy(device: ConnectedDevice) {
+  return remoteActionStatus(device)?.phase === "busy";
+}
+
+function remoteActionStatusClass(device: ConnectedDevice) {
+  const phase = remoteActionStatus(device)?.phase;
+  return phase ? `remote-status-${phase}` : "";
+}
+
+function setRemoteActionStatus(device: ConnectedDevice, state: RemoteActionState) {
+  remoteActionByDeviceId.value = {
+    ...remoteActionByDeviceId.value,
+    [device.id]: state,
+  };
+}
+
+function onRemoteFirmwarePicked(device: ConnectedDevice, event: Event) {
+  const input = event.target as HTMLInputElement | null;
+  const file = input?.files?.[0] ?? undefined;
+  remoteFirmwareByDeviceId.value = {
+    ...remoteFirmwareByDeviceId.value,
+    [device.id]: file,
+  };
+}
+
+function remoteResponseMessage(responseText: string, fallback: string) {
+  const text = responseText.trim();
+  if (!text) {
+    return fallback;
+  }
+
+  try {
+    const parsed = JSON.parse(text) as { ok?: unknown; message?: unknown };
+    if (parsed.ok === true) {
+      return typeof parsed.message === "string" && parsed.message.trim()
+        ? parsed.message.trim()
+        : fallback;
+    }
+  } catch {
+    // Plain-text firmware responses are expected here.
+  }
+
+  return text;
 }
 
 async function loadRemoteWifiInfo(device: ConnectedDevice | null) {
@@ -957,41 +1092,188 @@ onBeforeUnmount(() => {
   }
 });
 
-async function rebootConnectedDeviceToRecovery(device: ConnectedDevice) {
+async function postRemoteCommand(
+  device: ConnectedDevice,
+  kind: RemoteActionKind,
+  path: string,
+  label: string,
+  confirmMessage: string,
+  successMessage: string
+) {
   if (!device.remoteMac || !device.canManageRecovery) {
     return;
   }
 
-  const confirmed = window.confirm(`Reboot ${device.name} to recovery mode?`);
+  const confirmed = window.confirm(confirmMessage);
   if (!confirmed) {
     return;
   }
 
-  remoteRecoveryBusyId.value = device.id;
-  remoteActionDeviceId.value = device.id;
-  remoteActionMessage.value = "";
+  setRemoteActionStatus(device, {
+    kind,
+    phase: "busy",
+    label,
+    message: "Request sent to master",
+  });
 
   try {
-    const res = await fetch(`/wifi/rebootfactory?mac=${encodeURIComponent(device.remoteMac)}`, {
+    const res = await fetch(`${path}?mac=${encodeURIComponent(device.remoteMac)}`, {
       method: "POST",
       cache: "no-cache",
     });
+    const responseText = await res.text();
 
     if (!res.ok) {
-      const message = await res.text();
-      throw new Error(message || `HTTP ${res.status}`);
+      throw new Error(responseText || `HTTP ${res.status}`);
     }
 
-    remoteActionMessage.value = "Recovery reboot requested.";
-    await log(`Requested ${device.name} to reboot to recovery mode.`);
-    loadConnectedDevices();
+    const message = remoteResponseMessage(responseText, successMessage);
+    setRemoteActionStatus(device, {
+      kind,
+      phase: "success",
+      label,
+      message,
+    });
+    await log(`${label}: ${device.name} responded: ${message}`);
+    setTimeout(() => loadConnectedDevices(), 1000);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    remoteActionMessage.value = message;
-    await log(`Warning: could not reboot ${device.name}: ${message}`);
-  } finally {
-    remoteRecoveryBusyId.value = null;
+    setRemoteActionStatus(device, {
+      kind,
+      phase: "error",
+      label,
+      message,
+    });
+    await log(`Warning: ${label.toLowerCase()} failed for ${device.name}: ${message}`);
   }
+}
+
+function uploadFirmwareToConnectedDevice(device: ConnectedDevice, file: File) {
+  return new Promise<string>((resolve, reject) => {
+    if (!device.remoteMac) {
+      reject(new Error("Missing remote MAC"));
+      return;
+    }
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/wifi/update?mac=${encodeURIComponent(device.remoteMac)}`);
+    xhr.setRequestHeader("Content-Type", "application/octet-stream");
+    xhr.timeout = 120000;
+
+    xhr.upload.addEventListener("progress", (event) => {
+      if (!event.lengthComputable) {
+        return;
+      }
+
+      const progress = Math.max(1, Math.min(99, (event.loaded / event.total) * 100));
+      setRemoteActionStatus(device, {
+        kind: "update",
+        phase: "busy",
+        label: "OTA update",
+        message: `Streaming ${file.name}`,
+        progress,
+      });
+    });
+
+    xhr.addEventListener("load", () => {
+      const message = xhr.responseText?.trim() || `HTTP ${xhr.status}`;
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(message);
+      } else {
+        reject(new Error(message));
+      }
+    });
+    xhr.addEventListener("error", () => reject(new Error("Network error")));
+    xhr.addEventListener("timeout", () => reject(new Error("Timed out")));
+
+    xhr.send(file);
+  });
+}
+
+async function flashConnectedDevice(device: ConnectedDevice) {
+  if (!device.remoteMac || !device.canManageRecovery) {
+    return;
+  }
+
+  const file = remoteFirmwareFile(device);
+  if (!file) {
+    setRemoteActionStatus(device, {
+      kind: "update",
+      phase: "error",
+      label: "OTA update",
+      message: "No firmware file selected",
+    });
+    return;
+  }
+
+  const confirmed = window.confirm(`Flash ${file.name} to ${device.name} over OTA?`);
+  if (!confirmed) {
+    return;
+  }
+
+  setRemoteActionStatus(device, {
+    kind: "update",
+    phase: "busy",
+    label: "OTA update",
+    message: `Preparing ${file.name}`,
+    progress: 0,
+  });
+
+  try {
+    const message = await uploadFirmwareToConnectedDevice(device, file);
+    setRemoteActionStatus(device, {
+      kind: "update",
+      phase: "success",
+      label: "OTA update",
+      message,
+      progress: 100,
+    });
+    await log(`OTA update completed for ${device.name}: ${message}`);
+    setTimeout(() => loadConnectedDevices(), 1500);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    setRemoteActionStatus(device, {
+      kind: "update",
+      phase: "error",
+      label: "OTA update",
+      message,
+      progress: undefined,
+    });
+    await log(`Warning: OTA update failed for ${device.name}: ${message}`);
+  }
+}
+
+async function rebootConnectedDevice(device: ConnectedDevice) {
+  await postRemoteCommand(
+    device,
+    "reboot",
+    "/wifi/reboot",
+    "Reboot",
+    `Reboot ${device.name}?`,
+    "Reboot requested"
+  );
+}
+
+async function rebootConnectedDeviceToRecovery(device: ConnectedDevice) {
+  await postRemoteCommand(
+    device,
+    "recovery",
+    "/wifi/rebootfactory",
+    "Reboot to recovery",
+    `Reboot ${device.name} to recovery mode?`,
+    "Recovery reboot requested"
+  );
+}
+
+async function bootConnectedDeviceFromRecovery(device: ConnectedDevice) {
+  await postRemoteCommand(
+    device,
+    "boot",
+    "/wifi/boot",
+    "Boot from recovery",
+    `Boot ${device.name} from recovery?`,
+    "Boot requested"
+  );
 }
 
 function showRecovery() {
@@ -1033,6 +1315,8 @@ async function proceed() {
 .tab,
 .btn-danger,
 .btn-primary,
+.btn-secondary,
+.remote-file-control,
 .connected-device,
 .protocol-pill,
 .pill,
@@ -1228,6 +1512,34 @@ h1 {
   opacity: 0.62;
   transform: none;
   box-shadow: none;
+}
+
+.btn-secondary {
+  width: 100%;
+  padding: 14px;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #1f2937;
+  color: #d1d5db;
+}
+
+.btn-secondary:hover {
+  background: #2b3545;
+  border-color: #4b5563;
+  transform: translateY(-1px);
+}
+
+.btn-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+  transform: none;
 }
 
 .console-panel { display: flex; flex-direction: column; gap: 10px; }
@@ -1476,21 +1788,107 @@ h1 {
 
 .connected-actions {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  align-items: stretch;
+  flex-direction: column;
+  gap: 10px;
   padding-top: 4px;
 }
 
 .connected-action {
   width: auto;
-  min-width: 220px;
-  max-width: 280px;
+  min-width: 0;
+  max-width: none;
 }
 
 .connected-action-status {
   color: #9ca3af;
   font-size: 0.84rem;
+  border: 1px solid #1f2937;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(10, 14, 20, 0.62);
+}
+
+.remote-update {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 180px);
+  gap: 10px;
+  align-items: stretch;
+}
+
+.remote-file-control {
+  min-width: 0;
+  border: 1px dashed #374151;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.55);
+  color: #d1d5db;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.remote-file-control input {
+  display: none;
+}
+
+.remote-file-control span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.84rem;
+}
+
+.remote-file-control:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.remote-command-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.remote-status-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #e5e7eb;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.remote-status-message {
+  color: #9ca3af;
+  line-height: 1.45;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+
+.remote-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: #111827;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.remote-progress-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: #3b82f6;
+  transition: width 0.2s ease;
+}
+
+.remote-status-success {
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.remote-status-error {
+  border-color: rgba(248, 113, 113, 0.35);
 }
 
 .settings-panel {
@@ -1721,6 +2119,15 @@ h1 {
   .connected-list,
   .connected-detail {
     overflow: visible;
+  }
+
+  .remote-update,
+  .remote-command-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .remote-file-control {
+    min-height: 46px;
   }
 
   .console-header {
