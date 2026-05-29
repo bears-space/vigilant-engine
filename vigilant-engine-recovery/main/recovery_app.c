@@ -21,6 +21,8 @@ static const char* TAG = "ve_recovery";
     "starstreak"  // >= 8 chars for WPA2; set "" for open AP
 #define RECOVERY_AP_CHANNEL 6
 #define RECOVERY_MAX_CONN 2
+#define RECOVERY_DEVICE_MAGIC "vigilant-engine-device-v1"
+#define RECOVERY_DEVICE_MAGIC_HEADER "X-Vigilant-Device"
 
 // ---- OTA ----
 #define OTA_BUF_SIZE 2048
@@ -34,6 +36,47 @@ static esp_err_t index_get_handler(httpd_req_t* req) {
 
     return httpd_resp_send(req, (const char*)index_html_start,
                            index_html_end - index_html_start);
+}
+
+static esp_err_t info_get_handler(httpd_req_t* req) {
+    uint8_t mac[6] = {0};
+    char mac_str[18] = "00:00:00:00:00:00";
+    char ip_ap[16] = "0.0.0.0";
+
+    if (esp_wifi_get_mac(WIFI_IF_AP, mac) == ESP_OK) {
+        snprintf(mac_str, sizeof(mac_str), "%02X:%02X:%02X:%02X:%02X:%02X",
+                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    }
+
+    esp_netif_t* ap_netif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
+    if (ap_netif) {
+        esp_netif_ip_info_t ip_info = {0};
+        if (esp_netif_get_ip_info(ap_netif, &ip_info) == ESP_OK) {
+            snprintf(ip_ap, sizeof(ip_ap), IPSTR, IP2STR(&ip_info.ip));
+        }
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, RECOVERY_DEVICE_MAGIC_HEADER,
+                       RECOVERY_DEVICE_MAGIC);
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+
+    char payload[384];
+    int written = snprintf(
+        payload, sizeof(payload),
+        "{\"name\":\"Vigilant Recovery\",\"is_vigilant_device\":true,"
+        "\"vigilant_magic\":\"%s\",\"recovery\":true,\"network_mode\":0,"
+        "\"mac\":\"%s\",\"ap_ssid\":\"%s\",\"sta_ssid\":\"\","
+        "\"ip_sta\":\"0.0.0.0\",\"ip_ap\":\"%s\"}",
+        RECOVERY_DEVICE_MAGIC, mac_str, RECOVERY_AP_SSID, ip_ap);
+    if (written < 0 || written >= (int)sizeof(payload)) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
+                            "Info too large");
+        return ESP_FAIL;
+    }
+
+    httpd_resp_send(req, payload, written);
+    return ESP_OK;
 }
 
 static const esp_partition_t* find_ota0_partition(void) {
@@ -65,6 +108,15 @@ static esp_err_t boot_post_handler(httpd_req_t* req) {
 
     httpd_resp_set_type(req, "text/plain");
     httpd_resp_sendstr(req, "OK. Rebooting to ota_0...\n");
+
+    vTaskDelay(pdMS_TO_TICKS(250));
+    esp_restart();
+    return ESP_OK;
+}
+
+static esp_err_t reboot_post_handler(httpd_req_t* req) {
+    httpd_resp_set_type(req, "text/plain");
+    httpd_resp_sendstr(req, "OK. Rebooting...\n");
 
     vTaskDelay(pdMS_TO_TICKS(250));
     esp_restart();
@@ -201,6 +253,11 @@ static httpd_handle_t start_http_server(void) {
                              .handler = index_get_handler,
                              .user_ctx = NULL};
 
+    httpd_uri_t info_uri = {.uri = "/info",
+                            .method = HTTP_GET,
+                            .handler = info_get_handler,
+                            .user_ctx = NULL};
+
     httpd_uri_t update_uri = {.uri = "/update",
                               .method = HTTP_POST,
                               .handler = ota_post_handler,
@@ -211,9 +268,16 @@ static httpd_handle_t start_http_server(void) {
                             .handler = boot_post_handler,
                             .user_ctx = NULL};
 
+    httpd_uri_t reboot_uri = {.uri = "/reboot",
+                              .method = HTTP_POST,
+                              .handler = reboot_post_handler,
+                              .user_ctx = NULL};
+
     httpd_register_uri_handler(server, &index_uri);
+    httpd_register_uri_handler(server, &info_uri);
     httpd_register_uri_handler(server, &update_uri);
     httpd_register_uri_handler(server, &boot_uri);
+    httpd_register_uri_handler(server, &reboot_uri);
 
     ESP_LOGI(TAG, "HTTP server started");
     return server;
