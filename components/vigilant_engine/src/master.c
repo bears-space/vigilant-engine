@@ -1,12 +1,14 @@
 #include "master.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -191,6 +193,67 @@ static esp_err_t socket_send_all(int sock, const char* data, size_t len) {
     return ESP_OK;
 }
 
+static esp_err_t socket_connect_with_timeout(int sock,
+                                             const struct sockaddr* dest_addr,
+                                             socklen_t addr_len,
+                                             int timeout_ms) {
+    int flags = fcntl(sock, F_GETFL, 0);
+    if (flags < 0) {
+        return ESP_FAIL;
+    }
+
+    if (fcntl(sock, F_SETFL, flags | O_NONBLOCK) < 0) {
+        return ESP_FAIL;
+    }
+
+    esp_err_t result = ESP_OK;
+    int connect_ret = connect(sock, dest_addr, addr_len);
+    if (connect_ret != 0) {
+        if (errno != EINPROGRESS && errno != EALREADY) {
+            result = ESP_FAIL;
+            goto restore_flags;
+        }
+
+        fd_set write_fds;
+        FD_ZERO(&write_fds);
+        FD_SET(sock, &write_fds);
+
+        struct timeval timeout = {
+            .tv_sec = timeout_ms / 1000,
+            .tv_usec = (timeout_ms % 1000) * 1000,
+        };
+
+        int select_ret = select(sock + 1, NULL, &write_fds, NULL, &timeout);
+        if (select_ret == 0) {
+            result = ESP_ERR_TIMEOUT;
+            goto restore_flags;
+        }
+        if (select_ret < 0) {
+            result = ESP_FAIL;
+            goto restore_flags;
+        }
+
+        int socket_error = 0;
+        socklen_t socket_error_len = sizeof(socket_error);
+        if (getsockopt(sock, SOL_SOCKET, SO_ERROR, &socket_error,
+                       &socket_error_len) < 0) {
+            result = ESP_FAIL;
+            goto restore_flags;
+        }
+        if (socket_error != 0) {
+            errno = socket_error;
+            result = socket_error == ETIMEDOUT ? ESP_ERR_TIMEOUT : ESP_FAIL;
+            goto restore_flags;
+        }
+    }
+
+restore_flags:
+    if (fcntl(sock, F_SETFL, flags) < 0 && result == ESP_OK) {
+        result = ESP_FAIL;
+    }
+    return result;
+}
+
 static int parse_http_status_code(const char* response) {
     if (!response || strncmp(response, "HTTP/", 5) != 0) {
         return 0;
@@ -345,9 +408,10 @@ static esp_err_t perform_probe_request(const VigilantWifiDevice* device,
     dest_addr.sin_family = AF_INET;
     dest_addr.sin_port = htons(VE_MASTER_HTTP_PORT);
 
-    esp_err_t result = ESP_OK;
-    if (connect(sock, (struct sockaddr*)&dest_addr, sizeof(dest_addr)) != 0) {
-        result = ESP_FAIL;
+    esp_err_t result = socket_connect_with_timeout(
+        sock, (struct sockaddr*)&dest_addr, sizeof(dest_addr),
+        VE_MASTER_PROBE_TIMEOUT_MS);
+    if (result != ESP_OK) {
         goto cleanup;
     }
 
