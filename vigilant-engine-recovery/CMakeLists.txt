@@ -7,7 +7,7 @@ if(NOT DEFINED ENV{IDF_PATH} OR "$ENV{IDF_PATH}" STREQUAL "")
 endif()
 
 if(NOT DEFINED IDF_TARGET AND NOT DEFINED ENV{IDF_TARGET})
-  set(IDF_TARGET "esp32c6")
+  set(IDF_TARGET "esp32s3")
 endif()
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
@@ -21,6 +21,12 @@ get_filename_component(VE_REPO_ROOT "${CMAKE_SOURCE_DIR}/.." ABSOLUTE)
 set(VE_NODE_ROOT_DIR "${VE_REPO_ROOT}")
 set(VE_WEB_DIR "${VE_REPO_ROOT}/vigilant-engine-frontend")
 set(VE_RECOVERY_HTML "${VE_REPO_ROOT}/build/static/recovery/index.html")
+set(VE_ROOT_PARTITIONS_CSV "${VE_REPO_ROOT}/partitions.csv")
+set(VE_RECOVERY_PARTITIONS_CSV "${CMAKE_SOURCE_DIR}/partitions.csv")
+
+if(EXISTS "${VE_ROOT_PARTITIONS_CSV}")
+  configure_file("${VE_ROOT_PARTITIONS_CSV}" "${VE_RECOVERY_PARTITIONS_CSV}" COPYONLY)
+endif()
 
 idf_build_set_property(VE_BUILD_WEB "${VE_BUILD_WEB}")
 idf_build_set_property(VE_RECOVERY_HTML "${VE_RECOVERY_HTML}")

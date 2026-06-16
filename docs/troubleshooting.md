@@ -14,7 +14,7 @@ You are not in an ESP-IDF exported shell.
 Make sure your build succeeded and the binaries exist:
 
 - `build/vigilant-engine.bin`
-- `vigilant-engine-recovery/build/vigilant-engine-recovery.bin`
+- `build/recovery/vigilant-engine-recovery.bin`
 
 ## Port or permission errors
 

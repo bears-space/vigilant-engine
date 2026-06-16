@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, docker]
 
     steps:
       - name: Checkout repository
@@ -48,7 +48,7 @@ jobs:
           if-no-files-found: error
 
   firmware:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted]
     needs: frontend
     if: >-
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||

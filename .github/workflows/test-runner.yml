@@ -1,0 +1,16 @@
+name: Test self-hosted runner
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-run-job:
+    runs-on: [self-hosted, linux, x64, docker]
+
+    steps:
+      - name: Who am I
+        run: |
+          whoami
+          hostname
+          docker --version
+          docker run --rm hello-world

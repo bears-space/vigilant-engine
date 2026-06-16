@@ -11,6 +11,9 @@
         </div>
         <div class="status">{{ statusText }}</div>
       </div>
+      <div class="build-chip" :data-git-hash="buildGitHash" :title="buildGitHashTitle">
+        git {{ buildGitHashShort }}
+      </div>
     </header>
 
     <main class="workspace">
@@ -323,6 +326,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { buildGitHash, buildGitHashShort, buildGitHashTitle } from "../shared/buildInfo";
 
 type ProtocolId = "i2c" | "spi" | "canfd" | "wifi";
 type DeviceState = "added" | "detected" | "vigilant" | "other" | "unknown";
@@ -1317,6 +1321,7 @@ async function proceed() {
 .btn-primary,
 .btn-secondary,
 .remote-file-control,
+.build-chip,
 .connected-device,
 .protocol-pill,
 .pill,
@@ -1419,6 +1424,18 @@ h1 {
 }
 
 .title-block { display: flex; flex-direction: column; gap: 4px; }
+
+.build-chip {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border: 1px solid #1f2937;
+  border-radius: 999px;
+  background: rgba(13, 17, 23, 0.78);
+  color: #9ca3af;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0;
+}
 
 .workspace {
   display: flex;
