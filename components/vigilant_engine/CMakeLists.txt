@@ -1,4 +1,4 @@
-set(requires esp-tls nvs_flash esp_netif esp_http_server driver esp_driver_gpio esp_driver_i2c)
+set(requires esp-tls nvs_flash esp_netif esp_http_server esp_driver_i2c status_led)
 idf_build_get_property(target IDF_TARGET)
 idf_build_get_property(build_dir BUILD_DIR)
 idf_build_get_property(ve_build_web VE_BUILD_WEB)
@@ -111,7 +111,6 @@ set(vigilant_engine_srcs
     "src/http_server.c"
     "src/ota_http.c"
     "src/vigilant.c"
-    "src/status_led.c"
     "src/websocket.c"
 )
 

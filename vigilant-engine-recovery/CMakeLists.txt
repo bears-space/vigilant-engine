@@ -10,6 +10,9 @@ if(NOT DEFINED IDF_TARGET AND NOT DEFINED ENV{IDF_TARGET})
   set(IDF_TARGET "esp32s3")
 endif()
 
+get_filename_component(VE_REPO_ROOT "${CMAKE_SOURCE_DIR}/.." ABSOLUTE)
+set(EXTRA_COMPONENT_DIRS "${VE_REPO_ROOT}/components/status_led")
+
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 # "Trim" the build. Include the minimal set of components, main, and anything it depends on.
 idf_build_set_property(MINIMAL_BUILD ON)
@@ -17,7 +20,6 @@ idf_build_set_property(MINIMAL_BUILD ON)
 # ---- Web UI (Vite) build integration ----
 option(VE_BUILD_WEB "Build Vite UI before compiling firmware" ON)
 
-get_filename_component(VE_REPO_ROOT "${CMAKE_SOURCE_DIR}/.." ABSOLUTE)
 set(VE_NODE_ROOT_DIR "${VE_REPO_ROOT}")
 set(VE_WEB_DIR "${VE_REPO_ROOT}/vigilant-engine-frontend")
 set(VE_RECOVERY_HTML "${VE_REPO_ROOT}/build/static/recovery/index.html")
