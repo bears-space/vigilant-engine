@@ -6,9 +6,12 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+
 jobs:
   pre-commit:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, docker]
 
     steps:
       - name: Checkout repository
@@ -17,13 +20,12 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
 
-      - name: Set up Python from .python-version
-        uses: actions/setup-python@v5
-        with:
-          python-version-file: ".python-version"
-
       - name: Install dependencies
-        run: uv sync --dev
+        run: |
+          [ -s .python-version ] || { echo ".python-version file is missing or empty in the repository root" >&2; exit 1; }
+          PYTHON_VERSION="$(cat .python-version)"
+          uv python install "${PYTHON_VERSION}"
+          uv sync --dev --python "${PYTHON_VERSION}"
 
       - name: Run pre-commit
         run: uv run pre-commit run --all-files

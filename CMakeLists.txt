@@ -6,6 +6,7 @@ add_compile_options("-Werror")
 # Allow CI to supply prebuilt web assets while keeping local builds automatic.
 option(VE_BUILD_WEB "Build the Vigilant UI with npm when the embedded HTML is missing" ON)
 set(VE_VIGILANT_HTML "" CACHE FILEPATH "Path to a prebuilt vigilant.html file for firmware builds")
+set(VE_RECOVERY_HTML "" CACHE FILEPATH "Path to a prebuilt recovery.html file for recovery firmware builds")
 
 if(NOT DEFINED ENV{IDF_PATH} OR "$ENV{IDF_PATH}" STREQUAL "")
   message(FATAL_ERROR
@@ -21,6 +22,7 @@ idf_build_set_property(MINIMAL_BUILD ON)
 # build properties so component logic can still read these values during that pass.
 idf_build_set_property(VE_BUILD_WEB "${VE_BUILD_WEB}")
 idf_build_set_property(VE_VIGILANT_HTML "${VE_VIGILANT_HTML}")
+idf_build_set_property(VE_RECOVERY_HTML "${VE_RECOVERY_HTML}")
 project(vigilant-engine)
 
 idf_build_get_property(VE_BUILD_DIR BUILD_DIR)
@@ -41,7 +43,9 @@ if(NOT VE_RECOVERY_APP_OFFSET)
 endif()
 
 set(VE_RECOVERY_PROJECT_DIR "${CMAKE_SOURCE_DIR}/vigilant-engine-recovery")
-set(VE_RECOVERY_BIN "${VE_RECOVERY_PROJECT_DIR}/build/vigilant-engine-recovery.bin")
+set(VE_RECOVERY_BUILD_DIR "${VE_BUILD_DIR}/recovery")
+set(VE_RECOVERY_BIN "${VE_RECOVERY_BUILD_DIR}/vigilant-engine-recovery.bin")
+set(VE_RECOVERY_SDKCONFIG "${VE_RECOVERY_BUILD_DIR}/sdkconfig")
 set(VE_RECOVERY_PARTITIONS_CSV "${VE_RECOVERY_PROJECT_DIR}/partitions.csv")
 get_filename_component(VE_PYTHON_BIN_DIR "${VE_PYTHON}" DIRECTORY)
 get_filename_component(VE_PYTHON_ENV_PATH "${VE_PYTHON_BIN_DIR}" DIRECTORY)
@@ -56,6 +60,19 @@ if(NOT VE_IDF_TOOLS_PATH)
     set(VE_IDF_TOOLS_PATH "$ENV{HOME}/.espressif")
 endif()
 set(VE_ESP_ROM_ELF_DIR "$ENV{ESP_ROM_ELF_DIR}")
+
+set(VE_RECOVERY_BUILD_ENV
+    "IDF_PATH=${VE_IDF_PATH}"
+    "IDF_TOOLS_PATH=${VE_IDF_TOOLS_PATH}"
+    "IDF_PYTHON_ENV_PATH=${VE_PYTHON_ENV_PATH}"
+    "PATH=${VE_TOOLCHAIN_BIN_DIR}:$ENV{PATH}"
+)
+if(VE_ESP_IDF_VERSION)
+    list(APPEND VE_RECOVERY_BUILD_ENV "ESP_IDF_VERSION=${VE_ESP_IDF_VERSION}")
+endif()
+if(VE_ESP_ROM_ELF_DIR)
+    list(APPEND VE_RECOVERY_BUILD_ENV "ESP_ROM_ELF_DIR=${VE_ESP_ROM_ELF_DIR}")
+endif()
 
 function(ve_remove_default_project_bin target_name)
     if(NOT TARGET ${target_name})
@@ -86,22 +103,27 @@ esptool_py_flash_target_image(app-flash app "${VE_MAIN_APP_OFFSET}" "${VE_BUILD_
 esptool_py_flash_target_image(flash recovery "${VE_RECOVERY_APP_OFFSET}" "${VE_RECOVERY_BIN}" ALWAYS_PLAINTEXT)
 esptool_py_flash_target_image(flash app "${VE_MAIN_APP_OFFSET}" "${VE_BUILD_DIR}/${VE_PROJECT_BIN}")
 
-add_custom_target(ve_recovery_build
+add_custom_target(ve_recovery_build ALL
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             "${CMAKE_SOURCE_DIR}/partitions.csv"
             "${VE_RECOVERY_PARTITIONS_CSV}"
     COMMAND "${CMAKE_COMMAND}" -E env
-            "IDF_PATH=${VE_IDF_PATH}"
-            "IDF_TOOLS_PATH=${VE_IDF_TOOLS_PATH}"
-            "IDF_PYTHON_ENV_PATH=${VE_PYTHON_ENV_PATH}"
-            "ESP_IDF_VERSION=${VE_ESP_IDF_VERSION}"
-            "ESP_ROM_ELF_DIR=${VE_ESP_ROM_ELF_DIR}"
-            "PATH=${VE_TOOLCHAIN_BIN_DIR}:$ENV{PATH}"
-            "${VE_PYTHON}" "${VE_IDF_PATH}/tools/idf.py"
-            -C "${VE_RECOVERY_PROJECT_DIR}"
-            -D "IDF_TARGET=${VE_IDF_TARGET}"
-            -D "VE_BUILD_WEB=${VE_BUILD_WEB}"
-            reconfigure build
+            ${VE_RECOVERY_BUILD_ENV}
+            "${CMAKE_COMMAND}"
+            -G "${CMAKE_GENERATOR}"
+            -B "${VE_RECOVERY_BUILD_DIR}"
+            -S "${VE_RECOVERY_PROJECT_DIR}"
+            "-DPYTHON_DEPS_CHECKED=1"
+            "-DPYTHON=${VE_PYTHON}"
+            "-DESP_PLATFORM=1"
+            "-DIDF_TARGET=${VE_IDF_TARGET}"
+            "-DSDKCONFIG=${VE_RECOVERY_SDKCONFIG}"
+            "-DSDKCONFIG_DEFAULTS=${VE_RECOVERY_PROJECT_DIR}/sdkconfig.defaults"
+            "-DVE_BUILD_WEB=${VE_BUILD_WEB}"
+            "-DVE_RECOVERY_HTML=${VE_RECOVERY_HTML}"
+    COMMAND "${CMAKE_COMMAND}" -E env
+            ${VE_RECOVERY_BUILD_ENV}
+            "${CMAKE_COMMAND}" --build "${VE_RECOVERY_BUILD_DIR}"
     BYPRODUCTS "${VE_RECOVERY_BIN}" "${VE_RECOVERY_PARTITIONS_CSV}"
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
     USES_TERMINAL

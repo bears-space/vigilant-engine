@@ -2,6 +2,9 @@
   <div class="container">
     <h2>⚡ Vigilant Engine</h2>
     <div class="subtitle">⚠️ Recovery Mode</div>
+    <div class="build-chip" :data-git-hash="buildGitHash" :title="buildGitHashTitle">
+      git {{ buildGitHashShort }}
+    </div>
 
     <label for="f" class="file-input">
       <span>{{ fileLabel }}</span>
@@ -19,6 +22,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { buildGitHash, buildGitHashShort, buildGitHashTitle } from "../shared/buildInfo";
 
 const fileEl = ref<HTMLInputElement | null>(null);
 const picked = ref<File | null>(null);
@@ -90,8 +94,23 @@ h2 {
 .subtitle {
   font-size: 0.875rem;
   color: #ef4444;
-  margin-bottom: 24px;
+  margin-bottom: 10px;
   font-weight: 600;
+}
+
+.build-chip {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 6px 10px;
+  margin-bottom: 24px;
+  border: 1px solid #1f2937;
+  border-radius: 999px;
+  background: rgba(13, 17, 23, 0.78);
+  color: #9ca3af;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0;
 }
 
 .file-input {
