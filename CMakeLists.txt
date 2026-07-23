@@ -6,6 +6,7 @@ add_compile_options("-Werror")
 # Allow CI to supply prebuilt web assets while keeping local builds automatic.
 option(VE_BUILD_WEB "Build the Vigilant UI with npm when the embedded HTML is missing" ON)
 set(VE_VIGILANT_HTML "" CACHE FILEPATH "Path to a prebuilt vigilant.html file for firmware builds")
+set(VE_RECOVERY_HTML "" CACHE FILEPATH "Path to a prebuilt recovery.html file for recovery firmware builds")
 
 if(NOT DEFINED ENV{IDF_PATH} OR "$ENV{IDF_PATH}" STREQUAL "")
   message(FATAL_ERROR
@@ -21,6 +22,7 @@ idf_build_set_property(MINIMAL_BUILD ON)
 # build properties so component logic can still read these values during that pass.
 idf_build_set_property(VE_BUILD_WEB "${VE_BUILD_WEB}")
 idf_build_set_property(VE_VIGILANT_HTML "${VE_VIGILANT_HTML}")
+idf_build_set_property(VE_RECOVERY_HTML "${VE_RECOVERY_HTML}")
 project(vigilant-engine)
 
 idf_build_get_property(VE_BUILD_DIR BUILD_DIR)
@@ -118,6 +120,7 @@ add_custom_target(ve_recovery_build ALL
             "-DSDKCONFIG=${VE_RECOVERY_SDKCONFIG}"
             "-DSDKCONFIG_DEFAULTS=${VE_RECOVERY_PROJECT_DIR}/sdkconfig.defaults"
             "-DVE_BUILD_WEB=${VE_BUILD_WEB}"
+            "-DVE_RECOVERY_HTML=${VE_RECOVERY_HTML}"
     COMMAND "${CMAKE_COMMAND}" -E env
             ${VE_RECOVERY_BUILD_ENV}
             "${CMAKE_COMMAND}" --build "${VE_RECOVERY_BUILD_DIR}"

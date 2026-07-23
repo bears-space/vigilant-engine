@@ -76,4 +76,5 @@ jobs:
           idf.py \
             -DVE_BUILD_WEB=OFF \
             -DVE_VIGILANT_HTML="${GITHUB_WORKSPACE}/.ci-artifacts/frontend/vigilant.html" \
+            -DVE_RECOVERY_HTML="${GITHUB_WORKSPACE}/.ci-artifacts/frontend/recovery.html" \
             build
