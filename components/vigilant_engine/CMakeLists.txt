@@ -1,4 +1,4 @@
-set(requires esp-tls nvs_flash esp_netif esp_http_server driver esp_driver_gpio esp_driver_i2c)
+set(requires esp-tls nvs_flash esp_netif esp_http_server driver esp_driver_gpio esp_driver_i2c esp_timer)
 idf_build_get_property(target IDF_TARGET)
 idf_build_get_property(build_dir BUILD_DIR)
 idf_build_get_property(ve_build_web VE_BUILD_WEB)

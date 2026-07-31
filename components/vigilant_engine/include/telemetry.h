@@ -4,6 +4,9 @@
 
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
+#include "freertos/task.h"
 
 typedef enum {
     MEASUREMENT_IMU,
@@ -80,6 +83,14 @@ typedef struct {
 
 typedef uint32_t sensor_channel_id_t;
 
+esp_err_t pipeline_submit_measurement(sensor_channel_t* channel,
+                                      const sensor_measurement_t* measurement,
+                                      TickType_t timeout);
+
+sensor_channel_registry_t* get_sensor_registry(void);
 esp_err_t pipeline_init(void);
 esp_err_t pipeline_create_channel(const sensor_channel_config_t* config);
+esp_err_t sensor_registry_find(sensor_channel_registry_t* registry,
+                               sensor_channel_id_t id,
+                               sensor_channel_t** out_channel);
 esp_err_t pipeline_deinit(void);
