@@ -51,6 +51,30 @@ static void example_task(void* arg) {
             pdMS_TO_TICKS(100)  // THIS MUST BE COMPLIANT WITH
                                 // CONFIG_FREERTOS_HZ AND nominal_period_us
         );
+        /*
+        A result like this is normal, because there currenty is no consumer for
+        the measurements, so the queue will fill up and drop measurements.
+
+        I (995) example_sensor: 1: Example sensor task running, channel: Example
+        IMU Sensor I (1095) example_sensor: 2: Example sensor task running,
+        channel: Example IMU Sensor I (1195) example_sensor: 3: Example sensor
+        task running, channel: Example IMU Sensor I (1295) example_sensor: 4:
+        Example sensor task running, channel: Example IMU Sensor I (1395)
+        example_sensor: 5: Example sensor task running, channel: Example IMU
+        Sensor I (1495) example_sensor: 6: Example sensor task running, channel:
+        Example IMU Sensor I (1595) example_sensor: 7: Example sensor task
+        running, channel: Example IMU Sensor I (1695) example_sensor: 8: Example
+        sensor task running, channel: Example IMU Sensor I (1795)
+        example_sensor: 9: Example sensor task running, channel: Example IMU
+        Sensor I (1895) example_sensor: 10: Example sensor task running,
+        channel: Example IMU Sensor W (1895) example_sensor: Measurement
+        dropped, total: 1 I (1995) example_sensor: 11: Example sensor task
+        running, channel: Example IMU Sensor E (1995) example_sensor: IMU read
+        failed: ESP_ERR_TIMEOUT W (1995) example_sensor: Measurement dropped,
+        total: 2 I (2095) example_sensor: 12: Example sensor task running,
+        channel: Example IMU Sensor E (2095) example_sensor: IMU read failed:
+        ESP_ERR_TIMEOUT W (2095) example_sensor: Measurement dropped, total: 3
+        */
     }
 }
 
