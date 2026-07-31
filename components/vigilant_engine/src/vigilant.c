@@ -19,6 +19,7 @@
 #include "nvs_flash.h"
 #include "sdkconfig.h"
 #include "status_led.h"
+#include "telemetry.h"
 #include "websocket.h"
 
 static const char* TAG = "vigilant";
@@ -281,7 +282,15 @@ esp_err_t vigilant_init(VigilantConfig VgConfig) {
              VgConfig.unique_component_name);
     s_cfg = VgConfig;
 
-    // Set info status once
+    // Initialize the telemetry pipeline after all other components are set up
+    ESP_LOGI(TAG, "Initializing telemetry pipeline");
+    err = pipeline_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize telemetry pipeline: %s",
+                 esp_err_to_name(err));
+        return err;
+    }
+    ESP_LOGI(TAG, "Telemetry pipeline initialized successfully");
 
     return ESP_OK;
 }

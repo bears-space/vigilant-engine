@@ -3,14 +3,7 @@
 #include <stdint.h>
 
 #include "esp_err.h"
-
-typedef enum {
-    SENSOR_IMU,
-    SENSOR_BAROMETER,
-    SENSOR_GNSS,
-    SENSOR_ADC,
-    SENSOR_COUNT
-} sensor_id_t;
+#include "freertos/FreeRTOS.h"
 
 typedef enum {
     MEASUREMENT_IMU,
@@ -27,7 +20,7 @@ typedef enum {
 } measurement_flags_t;
 
 typedef struct {
-    sensor_id_t sensor_id;
+    uint8_t sensor_id;
     measurement_type_t type;
 
     uint64_t timestamp_us;
@@ -59,5 +52,34 @@ typedef struct {
     } data;
 } sensor_measurement_t;
 
+typedef struct {
+    uint8_t id;
+    const char* name;
+    measurement_type_t measurement_type;
+
+    uint32_t nominal_period_us;
+    uint32_t notification_bit;
+} sensor_channel_config_t;
+
+typedef struct {
+    const sensor_channel_config_t* config;
+
+    QueueHandle_t queue;
+    TaskHandle_t fusion_task;
+
+    uint32_t next_sequence;
+    uint32_t dropped_measurements;
+} sensor_channel_t;
+
+typedef struct {
+    sensor_channel_t** items;
+    size_t count;
+    size_t capacity;
+    SemaphoreHandle_t mutex;
+} sensor_channel_registry_t;
+
+typedef uint32_t sensor_channel_id_t;
+
 esp_err_t pipeline_init(void);
+esp_err_t pipeline_create_channel(const sensor_channel_config_t* config);
 esp_err_t pipeline_deinit(void);
