@@ -78,18 +78,6 @@
     </li>
         </ul>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#menuconfig-settings-example-http">Menuconfig Settings (Example / HTTP)</a>
-        <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#example_basic_auth-bool">EXAMPLE_BASIC_AUTH, bool</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#example_basic_auth_username-string">EXAMPLE_BASIC_AUTH_USERNAME, string</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#example_basic_auth_password-string">EXAMPLE_BASIC_AUTH_PASSWORD, string</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#example_enable_sse_handler-bool">EXAMPLE_ENABLE_SSE_HANDLER, bool</a>
-    </li>
-        </ul>
-    </li>
     <li class="toctree-l2"><a class="reference internal" href="#menuconfig-settings-status-led">Menuconfig Settings (Status LED)</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#ve_invert_status_led-bool">VE_INVERT_STATUS_LED, bool</a>
@@ -131,6 +119,12 @@
     <li class="toctree-l3"><a class="reference internal" href="#ve_ap_ssid_prefix-string">VE_AP_SSID_PREFIX, string</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#ve_ap_password-string">VE_AP_PASSWORD, string</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#vigilant-engine-settings">Vigilant Engine Settings</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_disable_frontend-bool">VE_DISABLE_FRONTEND, bool</a>
     </li>
         </ul>
     </li>
@@ -206,24 +200,6 @@
 <li><code>NW_MODE_STA</code> STA mode</li>
 </ul>
 <hr />
-<h2 id="menuconfig-settings-example-http">Menuconfig Settings (Example / HTTP)<a class="headerlink" href="#menuconfig-settings-example-http" title="Permanent link">&para;</a></h2>
-<hr />
-<h4 id="example_basic_auth-bool"><code>EXAMPLE_BASIC_AUTH</code>, <strong>bool</strong><a class="headerlink" href="#example_basic_auth-bool" title="Permanent link">&para;</a></h4>
-<p>Enable HTTP Basic Authentication for the web server. When enabled, clients must provide a username and password in the HTTP headers before accessing protected resources.</p>
-<p><strong>default</strong>: <code>0</code></p>
-<hr />
-<h4 id="example_basic_auth_username-string"><code>EXAMPLE_BASIC_AUTH_USERNAME</code>, <strong>string</strong><a class="headerlink" href="#example_basic_auth_username-string" title="Permanent link">&para;</a></h4>
-<p>The username used for HTTP Basic Authentication. This setting is only available when <code>EXAMPLE_BASIC_AUTH</code> is enabled.</p>
-<p><strong>default</strong>: <code>"ESP32"</code></p>
-<hr />
-<h4 id="example_basic_auth_password-string"><code>EXAMPLE_BASIC_AUTH_PASSWORD</code>, <strong>string</strong><a class="headerlink" href="#example_basic_auth_password-string" title="Permanent link">&para;</a></h4>
-<p>The password used for HTTP Basic Authentication. This setting is only available when <code>EXAMPLE_BASIC_AUTH</code> is enabled.</p>
-<p><strong>default</strong>: <code>"ESP32Webserver"</code></p>
-<hr />
-<h4 id="example_enable_sse_handler-bool"><code>EXAMPLE_ENABLE_SSE_HANDLER</code>, <strong>bool</strong><a class="headerlink" href="#example_enable_sse_handler-bool" title="Permanent link">&para;</a></h4>
-<p>Enable Server-Sent Events (SSE) support so the server can push real-time updates to connected clients over HTTP.</p>
-<p><strong>default</strong>: <code>0</code></p>
-<hr />
 <h2 id="menuconfig-settings-status-led">Menuconfig Settings (Status LED)<a class="headerlink" href="#menuconfig-settings-status-led" title="Permanent link">&para;</a></h2>
 <hr />
 <h4 id="ve_invert_status_led-bool"><code>VE_INVERT_STATUS_LED</code>, <strong>bool</strong><a class="headerlink" href="#ve_invert_status_led-bool" title="Permanent link">&para;</a></h4>
@@ -294,6 +270,10 @@
 <p>The password for the WiFi Access Point (AP) mode of the Vigilant Engine.</p>
 <p><strong>default</strong>: <code>"starstreak"</code></p>
 <hr />
+<h2 id="vigilant-engine-settings">Vigilant Engine Settings<a class="headerlink" href="#vigilant-engine-settings" title="Permanent link">&para;</a></h2>
+<hr />
+<h4 id="ve_disable_frontend-bool"><code>VE_DISABLE_FRONTEND</code>, <strong>bool</strong><a class="headerlink" href="#ve_disable_frontend-bool" title="Permanent link">&para;</a></h4>
+<p>Option to disable the frontend embed for the main app, to save flash space. API routes will still be accessible.</p>
               
             </div>
           </div><footer>
@@ -309,7 +289,7 @@
   </div>
 
   <p>
-      Based on commit b308131 -
+      Based on commit cf66047 -
     Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
   </p>
 </footer>
