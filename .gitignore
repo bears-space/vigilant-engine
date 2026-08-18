@@ -12,6 +12,8 @@ dependencies.lock
 partitions.csv
 .venv
 uv.lock
+/site
+__pycache__/
 
 vigilant-engine-recovery/main/static/*
 components/vigilant_engine/static/*

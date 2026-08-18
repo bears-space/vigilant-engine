@@ -4,6 +4,7 @@
 #include "esp_event.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
+#include "esp_mac.h"
 #include "esp_netif.h"
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
@@ -17,7 +18,7 @@
 static const char* TAG = "ve_recovery";
 
 // ---- AP Config ----
-#define RECOVERY_AP_SSID "VE-Recovery"
+#define RECOVERY_AP_SSID_PREFIX "VE-Recovery-"
 #define RECOVERY_AP_PASS \
     "starstreak"  // >= 8 chars for WPA2; set "" for open AP
 #define RECOVERY_AP_CHANNEL 6
@@ -235,8 +236,17 @@ static void wifi_init_softap(void) {
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
     wifi_config_t ap_cfg = {0};
-    strncpy((char*)ap_cfg.ap.ssid, RECOVERY_AP_SSID, sizeof(ap_cfg.ap.ssid));
-    ap_cfg.ap.ssid_len = strlen(RECOVERY_AP_SSID);
+
+    // generate ssid
+    //  Generate a unique SSID for the AP based on the device's MAC address
+    uint8_t mac[6];
+    ESP_ERROR_CHECK(esp_read_mac(mac, ESP_MAC_WIFI_STA));
+    snprintf((char*)ap_cfg.ap.ssid, sizeof(ap_cfg.ap.ssid), "%s%02X%02X",
+             RECOVERY_AP_SSID_PREFIX, mac[4], mac[5]);
+    ESP_LOGI(TAG, "Device MAC: %02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1],
+             mac[2], mac[3], mac[4], mac[5]);
+
+    ap_cfg.ap.ssid_len = strlen((const char*)ap_cfg.ap.ssid);
     ap_cfg.ap.channel = RECOVERY_AP_CHANNEL;
     ap_cfg.ap.max_connection = RECOVERY_MAX_CONN;
 
@@ -254,7 +264,7 @@ static void wifi_init_softap(void) {
     ESP_ERROR_CHECK(esp_wifi_start());
 
     ESP_LOGI(TAG, "AP started: SSID='%s' PASS='%s' (IP usually 192.168.4.1)",
-             RECOVERY_AP_SSID,
+             (const char*)ap_cfg.ap.ssid,
              strlen(RECOVERY_AP_PASS) ? RECOVERY_AP_PASS : "<open>");
 }
 

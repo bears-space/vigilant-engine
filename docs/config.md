@@ -23,28 +23,6 @@ The network mode of the esp node.
 - `NW_MODE_AP` AP mode
 - `NW_MODE_STA` STA mode
 ___
-## Menuconfig Settings (Example / HTTP)
-___
-#### `EXAMPLE_BASIC_AUTH`, **bool**
-Enable HTTP Basic Authentication for the web server. When enabled, clients must provide a username and password in the HTTP headers before accessing protected resources.
-
-**default**: `0`
-___
-#### `EXAMPLE_BASIC_AUTH_USERNAME`, **string**
-The username used for HTTP Basic Authentication. This setting is only available when `EXAMPLE_BASIC_AUTH` is enabled.
-
-**default**: `"ESP32"`
-___
-#### `EXAMPLE_BASIC_AUTH_PASSWORD`, **string**
-The password used for HTTP Basic Authentication. This setting is only available when `EXAMPLE_BASIC_AUTH` is enabled.
-
-**default**: `"ESP32Webserver"`
-___
-#### `EXAMPLE_ENABLE_SSE_HANDLER`, **bool**
-Enable Server-Sent Events (SSE) support so the server can push real-time updates to connected clients over HTTP.
-
-**default**: `0`
-___
 ## Menuconfig Settings (Status LED)
 ___
 #### `VE_INVERT_STATUS_LED`, **bool**
@@ -127,3 +105,7 @@ The password for the WiFi Access Point (AP) mode of the Vigilant Engine.
 
 **default**: `"starstreak"`
 ___
+## Vigilant Engine Settings
+___
+#### `VE_DISABLE_FRONTEND`, **bool**
+Option to disable the frontend embed for the main app, to save flash space. API routes will still be accessible.

@@ -36,6 +36,8 @@ except ModuleNotFoundError:
 from common_test_methods import get_env_config_variable
 from pytest_embedded import Dut
 
+logger = logging.getLogger(__name__)
+
 
 class http_client_thread(threading.Thread):
     def __init__(self, ip: str, port: int, delay: int) -> None:
@@ -55,13 +57,13 @@ class http_client_thread(threading.Thread):
     def run(self) -> None:
         try:
             self.open_connection(self.ip, self.port, self.delay)
-        except socket.timeout:
+        except TimeoutError:
             self.exc = 1
 
     def join(self, timeout=None):  # type: ignore
         threading.Thread.join(self)
         if self.exc:
-            raise socket.timeout
+            raise TimeoutError
 
 
 @pytest.mark.wifi_router
@@ -70,19 +72,19 @@ def test_examples_protocol_http_server_simple(dut: Dut) -> None:
     # Get binary file
     binary_file = os.path.join(dut.app.binary_path, "simple.bin")
     bin_size = os.path.getsize(binary_file)
-    logging.info("http_server_bin_size : {}KB".format(bin_size // 1024))
+    logger.info(f"http_server_bin_size : {bin_size // 1024}KB")
 
     # Upload binary and start testing
-    logging.info("Starting http_server simple test app")
+    logger.info("Starting http_server simple test app")
 
     # Parse IP address of STA
-    logging.info("Waiting to connect with AP")
+    logger.info("Waiting to connect with AP")
     if dut.app.sdkconfig.get("EXAMPLE_WIFI_SSID_PWD_FROM_STDIN") is True:
         dut.expect("Please input ssid password:")
         env_name = "wifi_router"
         ap_ssid = get_env_config_variable(env_name, "ap_ssid")
         ap_password = get_env_config_variable(env_name, "ap_password")
-        dut.write(" ".join([ap_ssid, ap_password]))
+        dut.write(f"{ap_ssid} {ap_password}")
     got_ip = dut.expect(r"IPv4 address: (\d+\.\d+\.\d+\.\d+)[^\d]", timeout=30)[
         1
     ].decode()
@@ -90,15 +92,15 @@ def test_examples_protocol_http_server_simple(dut: Dut) -> None:
         1
     ].decode()
 
-    logging.info("Got IP   : {}".format(got_ip))
-    logging.info("Got Port : {}".format(got_port))
+    logger.info(f"Got IP   : {got_ip}")
+    logger.info(f"Got Port : {got_port}")
 
     # Expected Logs
     dut.expect("Registering URI handlers", timeout=30)
 
     # Run test script
     # If failed raise appropriate exception
-    logging.info("Test /hello GET handler")
+    logger.info("Test /hello GET handler")
     if not client.test_get_handler(got_ip, str(got_port)):
         raise RuntimeError
 
@@ -113,7 +115,7 @@ def test_examples_protocol_http_server_simple(dut: Dut) -> None:
     dut.expect("Found URL query parameter => query2=value2", timeout=30)
     dut.expect("Request headers lost", timeout=30)
 
-    logging.info("Test /ctrl PUT handler and realtime handler de/registration")
+    logger.info("Test /ctrl PUT handler and realtime handler de/registration")
     if not client.test_put_handler(got_ip, got_port):
         raise RuntimeError
     dut.expect("Unregistering /hello and /echo URIs", timeout=30)
@@ -124,12 +126,12 @@ def test_examples_protocol_http_server_simple(dut: Dut) -> None:
         string.printable[random.randint(0, len(string.printable)) - 1]
         for _ in range(10 * 1024)
     )
-    logging.info("Test /echo POST handler with random data")
+    logger.info("Test /echo POST handler with random data")
     if not client.test_post_handler(got_ip, got_port, random_data):
         raise RuntimeError
 
     queries = "query1=http%3A%2F%2Ffoobar&query3=abcd%2B1234%20xyz&query2=Esp%21%40%20%23%2471"
-    logging.info("Test /hello with custom query")
+    logger.info("Test /hello with custom query")
     if not client.test_custom_uri_query(got_ip, got_port, queries):
         raise RuntimeError
 
@@ -157,13 +159,13 @@ def test_examples_protocol_http_server_lru_purge_enable(dut: Dut) -> None:
     # Get binary file
     binary_file = os.path.join(dut.app.binary_path, "simple.bin")
     bin_size = os.path.getsize(binary_file)
-    logging.info("http_server_bin_size : {}KB".format(bin_size // 1024))
+    logger.info(f"http_server_bin_size : {bin_size // 1024}KB")
 
     # Upload binary and start testing
-    logging.info("Starting http_server simple test app")
+    logger.info("Starting http_server simple test app")
 
     # Parse IP address of STA
-    logging.info("Waiting to connect with AP")
+    logger.info("Waiting to connect with AP")
     if dut.app.sdkconfig.get("EXAMPLE_WIFI_SSID_PWD_FROM_STDIN") is True:
         dut.expect("Please input ssid password:")
         env_name = "wifi_router"
@@ -177,8 +179,8 @@ def test_examples_protocol_http_server_lru_purge_enable(dut: Dut) -> None:
         1
     ].decode()
 
-    logging.info("Got IP   : {}".format(got_ip))
-    logging.info("Got Port : {}".format(got_port))
+    logger.info(f"Got IP   : {got_ip}")
+    logger.info(f"Got Port : {got_port}")
 
     # Expected Logs
     dut.expect("Registering URI handlers", timeout=30)
@@ -190,7 +192,7 @@ def test_examples_protocol_http_server_lru_purge_enable(dut: Dut) -> None:
             thread.start()
             threads.append(thread)
         except OSError as err:
-            logging.info("Error: unable to start thread, {}".format(err))
+            logger.info(f"Error: unable to start thread, {err}")
 
     for t in threads:
         t.join()
@@ -209,13 +211,13 @@ def test_examples_protocol_http_server_sse(dut: Dut) -> None:
     # Get binary file
     binary_file = os.path.join(dut.app.binary_path, "simple.bin")
     bin_size = os.path.getsize(binary_file)
-    logging.info("http_server_bin_size : {}KB".format(bin_size // 1024))
+    logger.info(f"http_server_bin_size : {bin_size // 1024}KB")
 
     # Upload binary and start testing
-    logging.info("Starting http_server simple test app")
+    logger.info("Starting http_server simple test app")
 
     # Parse IP address of STA
-    logging.info("Waiting to connect with AP")
+    logger.info("Waiting to connect with AP")
     if dut.app.sdkconfig.get("EXAMPLE_WIFI_SSID_PWD_FROM_STDIN") is True:
         dut.expect("Please input ssid password:")
         env_name = "wifi_router"
@@ -231,15 +233,15 @@ def test_examples_protocol_http_server_sse(dut: Dut) -> None:
         ].decode()
     )
 
-    logging.info("Got IP   : {}".format(got_ip))
-    logging.info("Got Port : {}".format(got_port))
+    logger.info(f"Got IP   : {got_ip}")
+    logger.info(f"Got Port : {got_port}")
 
     # Expected Logs
     dut.expect("Registering URI handlers", timeout=30)
 
-    logging.info("Test /sse GET handler")
+    logger.info("Test /sse GET handler")
     try:
-        logging.info(f"Connecting to {got_ip}:{got_port}")
+        logger.info(f"Connecting to {got_ip}:{got_port}")
         conn = http.client.HTTPConnection(got_ip, got_port, timeout=15)
         conn.request("GET", url="/sse")  # Ensure the URL path is correct
         response = conn.getresponse()
@@ -259,5 +261,5 @@ def test_examples_protocol_http_server_sse(dut: Dut) -> None:
             raise RuntimeError(f"Unexpected line format: {response_data}")
 
     except Exception as e:
-        logging.error(f"Error during SSE GET request: {e}")
+        logger.error(f"Error during SSE GET request: {e}")
         raise RuntimeError("SSE handler test failed due to connection error")

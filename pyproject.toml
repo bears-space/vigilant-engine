@@ -9,4 +9,5 @@ dependencies = [
     "pre-commit>=4.6.0",
     "mkdocs>=1.6.1",
     "clang-format>=22.1.4",
+    "mkdocs-mermaid2-plugin>=1.2.3",
 ]

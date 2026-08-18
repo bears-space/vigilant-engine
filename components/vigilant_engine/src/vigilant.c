@@ -202,7 +202,6 @@ static esp_err_t wifi_apply_mode(NW_MODE mode, wifi_config_t* sta,
 esp_err_t vigilant_init(VigilantConfig VgConfig) {
     bool initializedSuccessfully =
         true;  // Assume success until a failure occurs
-    uint8_t mac[6];
 
     ESP_LOGI(TAG, "Init NVS");
     esp_err_t ret = nvs_flash_init();
@@ -224,6 +223,8 @@ esp_err_t vigilant_init(VigilantConfig VgConfig) {
     // Capture ESP-IDF logs early so they can be replayed to websocket clients
     websocket_init_log_capture();
 
+    // Generate a unique SSID for the AP based on the device's MAC address
+    uint8_t mac[6];
     ESP_ERROR_CHECK(esp_read_mac(mac, ESP_MAC_WIFI_STA));
     snprintf((char*)ap_cfg.ap.ssid, sizeof(ap_cfg.ap.ssid), "%s%02X%02X",
              CONFIG_VE_AP_SSID_PREFIX, mac[4], mac[5]);

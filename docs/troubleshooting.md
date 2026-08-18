@@ -37,3 +37,15 @@ correct flash size in `sdkconfig.defaults` so rebuilds keep the proper values.
 ## IntelliSense highlighting freertos libraries red
 
 In vscode: Ctrl+Shift+P to open command palette, then run: `> ESP-IDF: Add VS Code Configuration Folder`
+
+## esp32p4 chip revision mismatch
+
+Some esp32p4 chips are of older chip revisions. If this is the case, you will get the following error:
+
+```txt
+A fatal error occured: 'bootloader/bootloader.bin' requires chip revision in range [v3.1 - v3.99] (this chip is revision v1.3). Use the force argument to flash anyway.
+```
+
+To fix this, run `menuconfig` and set the chip revision like this:
+
+![Screenshot showing how to configure ESP32-P4 chip revision](images/p4-chip-revision-change.png)
