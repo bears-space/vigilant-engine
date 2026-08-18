@@ -9,72 +9,135 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_IMAGE: node:22-bookworm-slim
+  IDF_IMAGE: espressif/idf:v6.0
+
 jobs:
   frontend:
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, x64, docker]
+    timeout-minutes: 25
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/checkout@v6
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: vigilant-engine-frontend/package-lock.json
+          persist-credentials: false
 
-      - name: Install frontend dependencies
-        working-directory: vigilant-engine-frontend
-        run: npm ci
-
-      - name: Build frontend assets
-        working-directory: vigilant-engine-frontend
+      - name: Build frontend in isolated container
+        shell: bash
         run: |
-          npm run build:vigilant
-          npm run build:recovery
+          set -euo pipefail
+
+          job_root="${RUNNER_TEMP}/${GITHUB_JOB}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          rm -rf -- "${job_root}"
+          mkdir -p "${job_root}"/{home,npm-cache}
+          trap 'rm -rf -- "${job_root}"' EXIT
+
+          docker run --rm --init \
+            --user "$(id -u):$(id -g)" \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            --pids-limit=1024 \
+            -e CI=true \
+            -e HOME=/ci-home \
+            -e npm_config_cache=/npm-cache \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            -v "${job_root}/home:/ci-home" \
+            -v "${job_root}/npm-cache:/npm-cache" \
+            -w /workspace/vigilant-engine-frontend \
+            "${NODE_IMAGE}" \
+            sh -eu -c '
+              npm ci --no-audit --no-fund
+              npm run build:vigilant
+              npm run build:recovery
+            '
 
       - name: Collect frontend artifacts
+        shell: bash
         run: |
+          set -euo pipefail
+
+          test -s build/static/vigilant/vigilant.html
+          test -s build/static/recovery/index.html
+
           mkdir -p .ci-artifacts/frontend
           cp build/static/vigilant/vigilant.html .ci-artifacts/frontend/vigilant.html
           cp build/static/recovery/index.html .ci-artifacts/frontend/recovery.html
 
       - name: Upload frontend artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-static
           path: .ci-artifacts/frontend
           if-no-files-found: error
+          retention-days: 1
 
   firmware:
-    runs-on: [self-hosted]
-    needs: frontend
     if: >-
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'pull_request' && github.base_ref == 'main')
+      (
+        github.event_name == 'pull_request' &&
+        github.base_ref == 'main' &&
+        github.event.pull_request.head.repo.full_name == github.repository
+      )
+    needs: frontend
+    runs-on: [self-hosted, linux, x64, docker]
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Download frontend artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: frontend-static
           path: .ci-artifacts/frontend
 
-      - name: Install ESP-IDF
-        uses: espressif/install-esp-idf-action@v1
-        with:
-          version: v6.0
-
-      - name: Build firmware
-        env:
-          IDF_TARGET: esp32c6
+      - name: Verify frontend artifacts
+        shell: bash
         run: |
-          idf.py \
-            -DVE_BUILD_WEB=OFF \
-            -DVE_VIGILANT_HTML="${GITHUB_WORKSPACE}/.ci-artifacts/frontend/vigilant.html" \
-            -DVE_RECOVERY_HTML="${GITHUB_WORKSPACE}/.ci-artifacts/frontend/recovery.html" \
-            build
+          set -euo pipefail
+          test -s .ci-artifacts/frontend/vigilant.html
+          test -s .ci-artifacts/frontend/recovery.html
+
+      - name: Build firmware in isolated ESP-IDF container
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          job_root="${RUNNER_TEMP}/${GITHUB_JOB}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          rm -rf -- "${job_root}"
+          mkdir -p "${job_root}"/{home,cache}
+          trap 'rm -rf -- "${job_root}"' EXIT
+
+          docker run --rm --init \
+            --user "$(id -u):$(id -g)" \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            --pids-limit=2048 \
+            -e HOME=/ci-home \
+            -e XDG_CACHE_HOME=/ci-cache \
+            -e CCACHE_DIR=/ci-cache/ccache \
+            -e IDF_TARGET=esp32c6 \
+            -e IDF_GIT_SAFE_DIR=/workspace \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            -v "${job_root}/home:/ci-home" \
+            -v "${job_root}/cache:/ci-cache" \
+            -w /workspace \
+            "${IDF_IMAGE}" \
+            idf.py \
+              -DVE_BUILD_WEB=OFF \
+              -DVE_VIGILANT_HTML=/workspace/.ci-artifacts/frontend/vigilant.html \
+              -DVE_RECOVERY_HTML=/workspace/.ci-artifacts/frontend/recovery.html \
+              build
