@@ -13,6 +13,12 @@ Vigilant Engine provides a common set of capabilities intended to be reused acro
 - `STA`: Device connects to an existing Wi-Fi network
 - `APSTA`: Dual mode
 
+## WiFi master mode
+
+- Optional compile-time feature controlled by `VE_ENABLE_WIFI_MASTER`
+- Probes AP clients for the Vigilant device magic
+- Keeps non-Vigilant clients from being polled continuously
+
 ## Web server
 
 - Configuration and status pages

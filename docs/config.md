@@ -8,7 +8,8 @@ Runtime settings are configured in the main file like this:
 ```c
 VigilantConfig VgConfig = {
     .unique_component_name = "Vigilant ESP Test",
-    .network_mode = NW_MODE_APSTA
+    .network_mode = NW_MODE_APSTA,
+    .is_master = false
 };
 ```
 ### Available settings:
@@ -22,6 +23,34 @@ The network mode of the esp node.
 - `NW_MODE_APSTA` AP and STA mode
 - `NW_MODE_AP` AP mode
 - `NW_MODE_STA` STA mode
+___
+#### `is_master`, **bool**
+Starts WiFi master behavior when the firmware was built with `VE_ENABLE_WIFI_MASTER`.
+Master devices must use `NW_MODE_APSTA`, because they need both AP clients and STA networking.
+If `is_master` is `true` but `VE_ENABLE_WIFI_MASTER` is disabled in menuconfig, `vigilant_init()`
+returns `ESP_ERR_NOT_SUPPORTED`.
+___
+## Menuconfig Settings (Example / HTTP)
+___
+#### `EXAMPLE_BASIC_AUTH`, **bool**
+Enable HTTP Basic Authentication for the web server. When enabled, clients must provide a username and password in the HTTP headers before accessing protected resources.
+
+**default**: `0`
+___
+#### `EXAMPLE_BASIC_AUTH_USERNAME`, **string**
+The username used for HTTP Basic Authentication. This setting is only available when `EXAMPLE_BASIC_AUTH` is enabled.
+
+**default**: `"ESP32"`
+___
+#### `EXAMPLE_BASIC_AUTH_PASSWORD`, **string**
+The password used for HTTP Basic Authentication. This setting is only available when `EXAMPLE_BASIC_AUTH` is enabled.
+
+**default**: `"ESP32Webserver"`
+___
+#### `EXAMPLE_ENABLE_SSE_HANDLER`, **bool**
+Enable Server-Sent Events (SSE) support so the server can push real-time updates to connected clients over HTTP.
+
+**default**: `0`
 ___
 ## Menuconfig Settings (Status LED)
 ___
@@ -103,6 +132,15 @@ ___
 The password for the WiFi Access Point (AP) mode of the Vigilant Engine.
 
 **default**: `"starstreak"`
+___
+#### `VE_ENABLE_WIFI_MASTER`, **bool**
+Compile WiFi master mode into the firmware. When enabled, master-capable firmware can probe AP clients,
+recognize other Vigilant Engine devices using the `/info` magic, and expose cached identity in `/wifiinfo`.
+
+This setting only compiles the feature. The runtime `VigilantConfig.is_master` flag must also be set to
+`true` for the master polling task to start.
+
+**default**: `0`
 ___
 ## Vigilant Engine Settings
 ___

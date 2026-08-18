@@ -72,7 +72,12 @@
                   <div class="connected-device-name">{{ device.name }}</div>
                 </div>
                 <div class="connected-device-badges">
-                  <span class="device-state-pill device-state-added">Added</span>
+                  <span
+                    class="device-state-pill"
+                    :class="deviceStatePillClass(device)"
+                  >
+                    {{ deviceStateLabel(device) }}
+                  </span>
                   <span
                     class="protocol-pill"
                     :class="protocolPillClass(device.protocol)"
@@ -103,7 +108,51 @@
                   <div class="connected-device-name">{{ device.name }}</div>
                 </div>
                 <div class="connected-device-badges">
-                  <span class="device-state-pill device-state-detected">Detected</span>
+                  <span
+                    class="device-state-pill"
+                    :class="deviceStatePillClass(device)"
+                  >
+                    {{ deviceStateLabel(device) }}
+                  </span>
+                  <span
+                    class="protocol-pill"
+                    :class="protocolPillClass(device.protocol)"
+                  >
+                    {{ protocolLabel(device.protocol) }}
+                  </span>
+                </div>
+              </button>
+            </div>
+
+            <div v-if="wifiConnectedDevices.length" class="connected-list-group">
+              <div class="connected-subsection-title">WiFi Clients</div>
+
+              <button
+                v-for="device in wifiConnectedDevices"
+                :key="device.id"
+                type="button"
+                class="connected-device"
+                :class="{ active: activeConnectedDevice?.id === device.id }"
+                :aria-pressed="selectedConnectedDeviceId === device.id"
+                @click="selectedConnectedDeviceId = device.id"
+                @mouseenter="hoveredConnectedDeviceId = device.id"
+                @mouseleave="hoveredConnectedDeviceId = null"
+                @focus="hoveredConnectedDeviceId = device.id"
+                @blur="hoveredConnectedDeviceId = null"
+              >
+                <div class="connected-device-copy">
+                  <div class="connected-device-name">{{ device.name }}</div>
+                  <div v-if="device.addressIp" class="connected-device-sub">
+                    {{ device.addressIp }}
+                  </div>
+                </div>
+                <div class="connected-device-badges">
+                  <span
+                    class="device-state-pill"
+                    :class="deviceStatePillClass(device)"
+                  >
+                    {{ deviceStateLabel(device) }}
+                  </span>
                   <span
                     class="protocol-pill"
                     :class="protocolPillClass(device.protocol)"
@@ -126,13 +175,9 @@
             <div class="connected-device-badges">
               <span
                 class="device-state-pill"
-                :class="
-                  activeConnectedDevice.state === 'added'
-                    ? 'device-state-added'
-                    : 'device-state-detected'
-                "
+                :class="deviceStatePillClass(activeConnectedDevice)"
               >
-                {{ activeConnectedDevice.state === "added" ? "Added" : "Detected" }}
+                {{ deviceStateLabel(activeConnectedDevice) }}
               </span>
               <span
                 class="protocol-pill"
@@ -145,7 +190,7 @@
 
           <dl class="connected-detail-grid">
             <div
-              v-for="detail in activeConnectedDevice.details"
+              v-for="detail in activeConnectedDeviceDetails"
               :key="detail.label"
               class="connected-detail-row"
             >
@@ -153,12 +198,86 @@
               <dd>{{ detail.value }}</dd>
             </div>
           </dl>
+
+          <div v-if="activeConnectedDevice.canManageRecovery" class="connected-actions">
+            <div class="remote-update" :key="`update-${activeConnectedDevice.id}`">
+              <label class="remote-file-control">
+                <input
+                  type="file"
+                  accept=".bin,application/octet-stream"
+                  :disabled="remoteActionBusy(activeConnectedDevice)"
+                  @change="onRemoteFirmwarePicked(activeConnectedDevice, $event)"
+                />
+                <span>{{ remoteFirmwareFileLabel(activeConnectedDevice) }}</span>
+              </label>
+              <button
+                type="button"
+                class="btn-primary connected-action"
+                :disabled="remoteActionBusy(activeConnectedDevice) || !remoteFirmwareFile(activeConnectedDevice)"
+                @click="flashConnectedDevice(activeConnectedDevice)"
+              >
+                {{ remoteActionKind(activeConnectedDevice) === "update" ? "Updating..." : "Flash OTA" }}
+              </button>
+            </div>
+
+            <div class="remote-command-grid">
+              <button
+                type="button"
+                class="btn-secondary connected-action"
+                :disabled="remoteActionBusy(activeConnectedDevice)"
+                @click="rebootConnectedDevice(activeConnectedDevice)"
+              >
+                {{ remoteActionKind(activeConnectedDevice) === "reboot" ? "Rebooting..." : "Reboot" }}
+              </button>
+              <button
+                type="button"
+                class="btn-danger connected-action"
+                :disabled="remoteActionBusy(activeConnectedDevice)"
+                @click="rebootConnectedDeviceToRecovery(activeConnectedDevice)"
+              >
+                {{ remoteActionKind(activeConnectedDevice) === "recovery" ? "Requesting..." : "Reboot to Recovery" }}
+              </button>
+              <button
+                type="button"
+                class="btn-secondary connected-action"
+                :disabled="remoteActionBusy(activeConnectedDevice)"
+                @click="bootConnectedDeviceFromRecovery(activeConnectedDevice)"
+              >
+                {{ remoteActionKind(activeConnectedDevice) === "boot" ? "Booting..." : "Boot from Recovery" }}
+              </button>
+            </div>
+
+            <div
+              v-if="remoteActionStatus(activeConnectedDevice)"
+              class="connected-action-status"
+              :class="remoteActionStatusClass(activeConnectedDevice)"
+            >
+              <div class="remote-status-line">
+                <span>{{ remoteActionStatus(activeConnectedDevice)?.label }}</span>
+                <span v-if="remoteActionStatus(activeConnectedDevice)?.progress !== undefined">
+                  {{ Math.round(remoteActionStatus(activeConnectedDevice)?.progress ?? 0) }}%
+                </span>
+              </div>
+              <div
+                v-if="remoteActionStatus(activeConnectedDevice)?.progress !== undefined"
+                class="remote-progress"
+              >
+                <div
+                  class="remote-progress-bar"
+                  :style="{ width: `${remoteActionStatus(activeConnectedDevice)?.progress ?? 0}%` }"
+                ></div>
+              </div>
+              <div class="remote-status-message">
+                {{ remoteActionStatus(activeConnectedDevice)?.message }}
+              </div>
+            </div>
+          </div>
         </div>
 
         <div v-else class="connected-detail connected-empty-panel">
           <div class="connected-section-title">Device Details</div>
           <div class="connected-empty">
-            No I2C devices are currently available from `/i2cinfo`.
+            No connected devices are currently available.
           </div>
         </div>
       </section>
@@ -210,13 +329,21 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { buildGitHash, buildGitHashShort, buildGitHashTitle } from "../shared/buildInfo";
 
 type ProtocolId = "i2c" | "spi" | "canfd" | "wifi";
-type DeviceState = "added" | "detected";
+type DeviceState = "added" | "detected" | "vigilant" | "other" | "unknown";
+type DeviceGroup = "added" | "detected" | "wifi";
+type RemoteActionKind = "update" | "reboot" | "recovery" | "boot";
+type RemoteActionPhase = "busy" | "success" | "error";
 type ConnectedDevice = {
   id: string;
   name: string;
   protocol: ProtocolId;
   state: DeviceState;
+  group: DeviceGroup;
   details: Array<{ label: string; value: string }>;
+  addressIp?: string;
+  remoteMac?: string;
+  isVigilantDevice?: boolean;
+  canManageRecovery?: boolean;
 };
 type I2cAddedApiDevice = {
   name?: unknown;
@@ -240,6 +367,46 @@ type I2cInfoResponse = {
   added_devices?: unknown;
   detected_devices?: unknown;
 };
+type WifiApiDevice = {
+  is_vigilant_device?: unknown;
+  identity?: unknown;
+  name?: unknown;
+  mac?: unknown;
+  address?: unknown;
+  address_ip?: unknown;
+};
+type WifiInfoResponse = {
+  network_mode?: unknown;
+  mac?: unknown;
+  ap_ssid?: unknown;
+  sta_ssid?: unknown;
+  ip_sta?: unknown;
+  ip_ap?: unknown;
+  connected_devices?: unknown;
+};
+type RemoteVigilantInfoResponse = {
+  name?: unknown;
+  is_vigilant_device?: unknown;
+  vigilant_magic?: unknown;
+  network_mode?: unknown;
+  mac?: unknown;
+  ap_ssid?: unknown;
+  sta_ssid?: unknown;
+  ip_sta?: unknown;
+  ip_ap?: unknown;
+};
+type RemoteInfoState = {
+  loading: boolean;
+  error?: string;
+  data?: RemoteVigilantInfoResponse;
+};
+type RemoteActionState = {
+  kind: RemoteActionKind;
+  phase: RemoteActionPhase;
+  label: string;
+  message: string;
+  progress?: number;
+};
 
 const MAX_LOG_LINES = 200;
 const PING_INTERVAL_MS = 15000;
@@ -257,6 +424,9 @@ const activeTab = ref<TabId>("console");
 const connectedDevices = ref<ConnectedDevice[]>([]);
 const selectedConnectedDeviceId = ref("");
 const hoveredConnectedDeviceId = ref<string | null>(null);
+const remoteWifiInfoByDeviceId = ref<Record<string, RemoteInfoState>>({});
+const remoteFirmwareByDeviceId = ref<Record<string, File | undefined>>({});
+const remoteActionByDeviceId = ref<Record<string, RemoteActionState | undefined>>({});
 
 const overlayActive = ref(false);
 const proceeding = ref(false);
@@ -277,10 +447,13 @@ const consoleHtml = computed(() =>
     .join("\n")
 );
 const addedConnectedDevices = computed(() =>
-  connectedDevices.value.filter((device) => device.state === "added")
+  connectedDevices.value.filter((device) => device.group === "added")
 );
 const detectedOnlyConnectedDevices = computed(() =>
-  connectedDevices.value.filter((device) => device.state === "detected")
+  connectedDevices.value.filter((device) => device.group === "detected")
+);
+const wifiConnectedDevices = computed(() =>
+  connectedDevices.value.filter((device) => device.group === "wifi")
 );
 const activeConnectedDevice = computed(
   () =>
@@ -288,6 +461,37 @@ const activeConnectedDevice = computed(
       (device) => device.id === (hoveredConnectedDeviceId.value ?? selectedConnectedDeviceId.value)
     ) ?? connectedDevices.value[0] ?? null
 );
+const activeConnectedDeviceDetails = computed(() => {
+  const device = activeConnectedDevice.value;
+  if (!device) return [];
+
+  const details = [...device.details];
+  if (device.protocol !== "wifi" || !device.isVigilantDevice) {
+    return details;
+  }
+
+  const remoteInfo = remoteWifiInfoByDeviceId.value[device.id];
+  if (!remoteInfo) {
+    details.push({ label: "Vigilant Info", value: "Queued" });
+    return details;
+  }
+
+  if (remoteInfo.loading) {
+    details.push({ label: "Vigilant Info", value: "Loading" });
+    return details;
+  }
+
+  if (remoteInfo.error) {
+    details.push({ label: "Vigilant Info", value: remoteInfo.error });
+    return details;
+  }
+
+  if (remoteInfo.data) {
+    details.push(...mapRemoteVigilantInfoDetails(remoteInfo.data));
+  }
+
+  return details;
+});
 
 function escapeHtml(s: string) {
   return s
@@ -343,6 +547,18 @@ function protocolPillClass(protocol: ProtocolId) {
   return `protocol-${protocol}`;
 }
 
+function deviceStateLabel(device: ConnectedDevice) {
+  if (device.state === "added") return "Added";
+  if (device.state === "detected") return "Detected";
+  if (device.state === "vigilant") return "Vigilant";
+  if (device.state === "other") return "Other";
+  return "Unknown";
+}
+
+function deviceStatePillClass(device: ConnectedDevice) {
+  return `device-state-${device.state}`;
+}
+
 function asString(value: unknown) {
   return typeof value === "string" && value.trim() ? value : null;
 }
@@ -354,6 +570,20 @@ function asNumber(value: unknown) {
 function formatHexByte(value: number | null) {
   if (value === null) return "n/a";
   return `0x${value.toString(16).toUpperCase().padStart(2, "0")}`;
+}
+
+function networkModeLabel(value: unknown) {
+  const mode = asNumber(value);
+  if (mode === 0) return "AP";
+  if (mode === 1) return "STA";
+  if (mode === 2) return "APSTA";
+  return "n/a";
+}
+
+function identityLabel(identity: string | null, isVigilantDevice: boolean) {
+  if (isVigilantDevice || identity === "vigilant") return "Vigilant";
+  if (identity === "other") return "Other";
+  return "Unknown";
 }
 
 function formatI2cBusLabel(response: I2cInfoResponse) {
@@ -405,6 +635,7 @@ function mapI2cDevices(response: I2cInfoResponse): ConnectedDevice[] {
         name: asString(device.name) ?? `I2C Device ${addressHex}`,
         protocol: "i2c",
         state: "added",
+        group: "added",
         details: [
           { label: "Address", value: addressHex },
           { label: "Bus", value: busLabel },
@@ -438,6 +669,7 @@ function mapI2cDevices(response: I2cInfoResponse): ConnectedDevice[] {
         name: asString(device.name) ?? `Detected I2C Device ${addressHex}`,
         protocol: "i2c",
         state: "detected",
+        group: "detected",
         details: [
           { label: "Address", value: addressHex },
           { label: "Bus", value: busLabel },
@@ -448,6 +680,69 @@ function mapI2cDevices(response: I2cInfoResponse): ConnectedDevice[] {
   });
 
   return [...mappedAddedDevices, ...mappedDetectedDevices];
+}
+
+function mapWifiDevices(response: WifiInfoResponse): ConnectedDevice[] {
+  const clients = Array.isArray(response.connected_devices) ? response.connected_devices : [];
+  const apSsid = asString(response.ap_ssid);
+
+  return clients.flatMap((rawDevice, index) => {
+    if (!rawDevice || typeof rawDevice !== "object") {
+      return [];
+    }
+
+    const device = rawDevice as WifiApiDevice;
+    const mac = asString(device.mac);
+    const addressIp = asString(device.address_ip);
+    const identity = asString(device.identity);
+    const isVigilantDevice = device.is_vigilant_device === true || identity === "vigilant";
+    const state: DeviceState = isVigilantDevice
+      ? "vigilant"
+      : identity === "other"
+        ? "other"
+        : "unknown";
+    const displayName =
+      asString(device.name) ??
+      (isVigilantDevice ? "Vigilant WiFi Device" : "WiFi Client");
+    const idSuffix = (mac ?? addressIp ?? String(index)).toLowerCase();
+
+    return [
+      {
+        id: `wifi-${idSuffix}`,
+        name: displayName,
+        protocol: "wifi",
+        state,
+        group: "wifi",
+        addressIp: addressIp ?? undefined,
+        remoteMac: mac ?? undefined,
+        isVigilantDevice,
+        canManageRecovery: isVigilantDevice && !!mac,
+        details: [
+          { label: "Identity", value: identityLabel(identity, isVigilantDevice) },
+          { label: "Address", value: addressIp ?? "n/a" },
+          { label: "MAC", value: mac ?? "n/a" },
+          { label: "Access Point", value: apSsid ?? "n/a" },
+          { label: "Registration", value: "Connected to SoftAP" },
+          ...(isVigilantDevice
+            ? [{ label: "Vigilant Magic", value: "vigilant-engine-device-v1" }]
+            : []),
+        ],
+      },
+    ];
+  });
+}
+
+function mapRemoteVigilantInfoDetails(info: RemoteVigilantInfoResponse) {
+  return [
+    { label: "Remote Name", value: asString(info.name) ?? "n/a" },
+    { label: "Remote MAC", value: asString(info.mac) ?? "n/a" },
+    { label: "Network Mode", value: networkModeLabel(info.network_mode) },
+    { label: "AP SSID", value: asString(info.ap_ssid) ?? "n/a" },
+    { label: "STA SSID", value: asString(info.sta_ssid) ?? "n/a" },
+    { label: "STA IP", value: asString(info.ip_sta) ?? "n/a" },
+    { label: "AP IP", value: asString(info.ip_ap) ?? "n/a" },
+    { label: "Magic", value: asString(info.vigilant_magic) ?? "n/a" },
+  ];
 }
 
 async function loadDeviceInfo() {
@@ -464,29 +759,159 @@ async function loadDeviceInfo() {
 }
 
 async function loadConnectedDevices() {
-  try {
-    const res = await fetch("/i2cinfo", { cache: "no-cache" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const [i2cResult, wifiResult] = await Promise.allSettled([
+    fetch("/i2cinfo", { cache: "no-cache" }),
+    fetch("/wifiinfo", { cache: "no-cache" }),
+  ]);
 
-    const data = (await res.json()) as I2cInfoResponse;
-    const devices = mapI2cDevices(data);
+  const devices: ConnectedDevice[] = [];
 
-    connectedDevices.value = devices;
-    hoveredConnectedDeviceId.value = null;
-
-    if (!devices.length) {
-      selectedConnectedDeviceId.value = "";
-      return;
+  if (i2cResult.status === "fulfilled") {
+    try {
+      if (!i2cResult.value.ok) throw new Error(`HTTP ${i2cResult.value.status}`);
+      devices.push(...mapI2cDevices((await i2cResult.value.json()) as I2cInfoResponse));
+    } catch (err) {
+      console.warn("Failed to load I2C devices", err);
     }
+  } else {
+    console.warn("Failed to load I2C devices", i2cResult.reason);
+  }
 
-    if (!devices.some((device) => device.id === selectedConnectedDeviceId.value)) {
-      selectedConnectedDeviceId.value = devices[0].id;
+  if (wifiResult.status === "fulfilled") {
+    try {
+      if (!wifiResult.value.ok) throw new Error(`HTTP ${wifiResult.value.status}`);
+      devices.push(...mapWifiDevices((await wifiResult.value.json()) as WifiInfoResponse));
+    } catch (err) {
+      console.warn("Failed to load WiFi devices", err);
     }
-  } catch (err) {
-    connectedDevices.value = [];
+  } else {
+    console.warn("Failed to load WiFi devices", wifiResult.reason);
+  }
+
+  connectedDevices.value = devices;
+  hoveredConnectedDeviceId.value = null;
+
+  const validDeviceIds = new Set(devices.map((device) => device.id));
+  remoteWifiInfoByDeviceId.value = Object.fromEntries(
+    Object.entries(remoteWifiInfoByDeviceId.value).filter(([id]) => validDeviceIds.has(id))
+  );
+  remoteFirmwareByDeviceId.value = Object.fromEntries(
+    Object.entries(remoteFirmwareByDeviceId.value).filter(([id]) => validDeviceIds.has(id))
+  );
+  remoteActionByDeviceId.value = Object.fromEntries(
+    Object.entries(remoteActionByDeviceId.value).filter(([id]) => validDeviceIds.has(id))
+  );
+
+  if (!devices.length) {
     selectedConnectedDeviceId.value = "";
-    hoveredConnectedDeviceId.value = null;
-    console.warn("Failed to load connected devices", err);
+    return;
+  }
+
+  if (!devices.some((device) => device.id === selectedConnectedDeviceId.value)) {
+    selectedConnectedDeviceId.value = devices[0].id;
+  }
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function remoteFirmwareFile(device: ConnectedDevice) {
+  return remoteFirmwareByDeviceId.value[device.id] ?? null;
+}
+
+function remoteFirmwareFileLabel(device: ConnectedDevice) {
+  const file = remoteFirmwareFile(device);
+  return file ? `${file.name} (${formatBytes(file.size)})` : "Select firmware .bin";
+}
+
+function remoteActionStatus(device: ConnectedDevice) {
+  return remoteActionByDeviceId.value[device.id] ?? null;
+}
+
+function remoteActionKind(device: ConnectedDevice) {
+  return remoteActionStatus(device)?.phase === "busy" ? remoteActionStatus(device)?.kind : null;
+}
+
+function remoteActionBusy(device: ConnectedDevice) {
+  return remoteActionStatus(device)?.phase === "busy";
+}
+
+function remoteActionStatusClass(device: ConnectedDevice) {
+  const phase = remoteActionStatus(device)?.phase;
+  return phase ? `remote-status-${phase}` : "";
+}
+
+function setRemoteActionStatus(device: ConnectedDevice, state: RemoteActionState) {
+  remoteActionByDeviceId.value = {
+    ...remoteActionByDeviceId.value,
+    [device.id]: state,
+  };
+}
+
+function onRemoteFirmwarePicked(device: ConnectedDevice, event: Event) {
+  const input = event.target as HTMLInputElement | null;
+  const file = input?.files?.[0] ?? undefined;
+  remoteFirmwareByDeviceId.value = {
+    ...remoteFirmwareByDeviceId.value,
+    [device.id]: file,
+  };
+}
+
+function remoteResponseMessage(responseText: string, fallback: string) {
+  const text = responseText.trim();
+  if (!text) {
+    return fallback;
+  }
+
+  try {
+    const parsed = JSON.parse(text) as { ok?: unknown; message?: unknown };
+    if (parsed.ok === true) {
+      return typeof parsed.message === "string" && parsed.message.trim()
+        ? parsed.message.trim()
+        : fallback;
+    }
+  } catch {
+    // Plain-text firmware responses are expected here.
+  }
+
+  return text;
+}
+
+async function loadRemoteWifiInfo(device: ConnectedDevice | null) {
+  if (!device?.isVigilantDevice || !device.remoteMac) {
+    return;
+  }
+
+  if (remoteWifiInfoByDeviceId.value[device.id]) {
+    return;
+  }
+
+  remoteWifiInfoByDeviceId.value = {
+    ...remoteWifiInfoByDeviceId.value,
+    [device.id]: { loading: true },
+  };
+
+  try {
+    const res = await fetch(`/wifi/deviceinfo?mac=${encodeURIComponent(device.remoteMac)}`, {
+      cache: "no-cache",
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = (await res.json()) as RemoteVigilantInfoResponse;
+    remoteWifiInfoByDeviceId.value = {
+      ...remoteWifiInfoByDeviceId.value,
+      [device.id]: { loading: false, data },
+    };
+  } catch (err) {
+    remoteWifiInfoByDeviceId.value = {
+      ...remoteWifiInfoByDeviceId.value,
+      [device.id]: {
+        loading: false,
+        error: err instanceof Error ? err.message : "Unavailable",
+      },
+    };
   }
 }
 
@@ -646,6 +1071,13 @@ watch(activeTab, async (tabId) => {
   }
 });
 
+watch(
+  () => activeConnectedDevice.value?.id,
+  () => {
+    loadRemoteWifiInfo(activeConnectedDevice.value);
+  }
+);
+
 onMounted(() => {
   connectLogStream();
   loadDeviceInfo();
@@ -663,6 +1095,190 @@ onBeforeUnmount(() => {
     socket.value = null;
   }
 });
+
+async function postRemoteCommand(
+  device: ConnectedDevice,
+  kind: RemoteActionKind,
+  path: string,
+  label: string,
+  confirmMessage: string,
+  successMessage: string
+) {
+  if (!device.remoteMac || !device.canManageRecovery) {
+    return;
+  }
+
+  const confirmed = window.confirm(confirmMessage);
+  if (!confirmed) {
+    return;
+  }
+
+  setRemoteActionStatus(device, {
+    kind,
+    phase: "busy",
+    label,
+    message: "Request sent to master",
+  });
+
+  try {
+    const res = await fetch(`${path}?mac=${encodeURIComponent(device.remoteMac)}`, {
+      method: "POST",
+      cache: "no-cache",
+    });
+    const responseText = await res.text();
+
+    if (!res.ok) {
+      throw new Error(responseText || `HTTP ${res.status}`);
+    }
+
+    const message = remoteResponseMessage(responseText, successMessage);
+    setRemoteActionStatus(device, {
+      kind,
+      phase: "success",
+      label,
+      message,
+    });
+    await log(`${label}: ${device.name} responded: ${message}`);
+    setTimeout(() => loadConnectedDevices(), 1000);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    setRemoteActionStatus(device, {
+      kind,
+      phase: "error",
+      label,
+      message,
+    });
+    await log(`Warning: ${label.toLowerCase()} failed for ${device.name}: ${message}`);
+  }
+}
+
+function uploadFirmwareToConnectedDevice(device: ConnectedDevice, file: File) {
+  return new Promise<string>((resolve, reject) => {
+    if (!device.remoteMac) {
+      reject(new Error("Missing remote MAC"));
+      return;
+    }
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/wifi/update?mac=${encodeURIComponent(device.remoteMac)}`);
+    xhr.setRequestHeader("Content-Type", "application/octet-stream");
+    xhr.timeout = 120000;
+
+    xhr.upload.addEventListener("progress", (event) => {
+      if (!event.lengthComputable) {
+        return;
+      }
+
+      const progress = Math.max(1, Math.min(99, (event.loaded / event.total) * 100));
+      setRemoteActionStatus(device, {
+        kind: "update",
+        phase: "busy",
+        label: "OTA update",
+        message: `Streaming ${file.name}`,
+        progress,
+      });
+    });
+
+    xhr.addEventListener("load", () => {
+      const message = xhr.responseText?.trim() || `HTTP ${xhr.status}`;
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(message);
+      } else {
+        reject(new Error(message));
+      }
+    });
+    xhr.addEventListener("error", () => reject(new Error("Network error")));
+    xhr.addEventListener("timeout", () => reject(new Error("Timed out")));
+
+    xhr.send(file);
+  });
+}
+
+async function flashConnectedDevice(device: ConnectedDevice) {
+  if (!device.remoteMac || !device.canManageRecovery) {
+    return;
+  }
+
+  const file = remoteFirmwareFile(device);
+  if (!file) {
+    setRemoteActionStatus(device, {
+      kind: "update",
+      phase: "error",
+      label: "OTA update",
+      message: "No firmware file selected",
+    });
+    return;
+  }
+
+  const confirmed = window.confirm(`Flash ${file.name} to ${device.name} over OTA?`);
+  if (!confirmed) {
+    return;
+  }
+
+  setRemoteActionStatus(device, {
+    kind: "update",
+    phase: "busy",
+    label: "OTA update",
+    message: `Preparing ${file.name}`,
+    progress: 0,
+  });
+
+  try {
+    const message = await uploadFirmwareToConnectedDevice(device, file);
+    setRemoteActionStatus(device, {
+      kind: "update",
+      phase: "success",
+      label: "OTA update",
+      message,
+      progress: 100,
+    });
+    await log(`OTA update completed for ${device.name}: ${message}`);
+    setTimeout(() => loadConnectedDevices(), 1500);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    setRemoteActionStatus(device, {
+      kind: "update",
+      phase: "error",
+      label: "OTA update",
+      message,
+      progress: undefined,
+    });
+    await log(`Warning: OTA update failed for ${device.name}: ${message}`);
+  }
+}
+
+async function rebootConnectedDevice(device: ConnectedDevice) {
+  await postRemoteCommand(
+    device,
+    "reboot",
+    "/wifi/reboot",
+    "Reboot",
+    `Reboot ${device.name}?`,
+    "Reboot requested"
+  );
+}
+
+async function rebootConnectedDeviceToRecovery(device: ConnectedDevice) {
+  await postRemoteCommand(
+    device,
+    "recovery",
+    "/wifi/rebootfactory",
+    "Reboot to recovery",
+    `Reboot ${device.name} to recovery mode?`,
+    "Recovery reboot requested"
+  );
+}
+
+async function bootConnectedDeviceFromRecovery(device: ConnectedDevice) {
+  await postRemoteCommand(
+    device,
+    "boot",
+    "/wifi/boot",
+    "Boot from recovery",
+    `Boot ${device.name} from recovery?`,
+    "Boot requested"
+  );
+}
 
 function showRecovery() {
   overlayActive.value = true;
@@ -703,6 +1319,8 @@ async function proceed() {
 .tab,
 .btn-danger,
 .btn-primary,
+.btn-secondary,
+.remote-file-control,
 .build-chip,
 .connected-device,
 .protocol-pill,
@@ -710,6 +1328,7 @@ async function proceed() {
 .settings-group-title,
 .connected-section-title,
 .connected-device-name,
+.connected-device-sub,
 .connected-detail-name,
 .status,
 .console-sub,
@@ -905,6 +1524,41 @@ h1 {
   box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
 }
 
+.btn-danger:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-secondary {
+  width: 100%;
+  padding: 14px;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #1f2937;
+  color: #d1d5db;
+}
+
+.btn-secondary:hover {
+  background: #2b3545;
+  border-color: #4b5563;
+  transform: translateY(-1px);
+}
+
+.btn-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+  transform: none;
+}
+
 .console-panel { display: flex; flex-direction: column; gap: 10px; }
 
 .connected-panel {
@@ -1040,6 +1694,13 @@ h1 {
   line-height: 1.3;
 }
 
+.connected-device-sub {
+  color: #6b7280;
+  font-size: 0.74rem;
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
 .protocol-pill {
   display: inline-flex;
   align-items: center;
@@ -1076,6 +1737,21 @@ h1 {
 .device-state-detected {
   color: #facc15;
   background: rgba(234, 179, 8, 0.12);
+}
+
+.device-state-vigilant {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.device-state-other {
+  color: #f472b6;
+  background: rgba(236, 72, 153, 0.12);
+}
+
+.device-state-unknown {
+  color: #9ca3af;
+  background: rgba(107, 114, 128, 0.12);
 }
 
 .protocol-i2c {
@@ -1125,6 +1801,111 @@ h1 {
   font-size: 0.84rem;
   font-weight: 600;
   margin: 0;
+}
+
+.connected-actions {
+  display: flex;
+  align-items: stretch;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.connected-action {
+  width: auto;
+  min-width: 0;
+  max-width: none;
+}
+
+.connected-action-status {
+  color: #9ca3af;
+  font-size: 0.84rem;
+  border: 1px solid #1f2937;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(10, 14, 20, 0.62);
+}
+
+.remote-update {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 180px);
+  gap: 10px;
+  align-items: stretch;
+}
+
+.remote-file-control {
+  min-width: 0;
+  border: 1px dashed #374151;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.55);
+  color: #d1d5db;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.remote-file-control input {
+  display: none;
+}
+
+.remote-file-control span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.84rem;
+}
+
+.remote-file-control:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.remote-command-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.remote-status-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #e5e7eb;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.remote-status-message {
+  color: #9ca3af;
+  line-height: 1.45;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+
+.remote-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: #111827;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.remote-progress-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: #3b82f6;
+  transition: width 0.2s ease;
+}
+
+.remote-status-success {
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.remote-status-error {
+  border-color: rgba(248, 113, 113, 0.35);
 }
 
 .settings-panel {
@@ -1355,6 +2136,15 @@ h1 {
   .connected-list,
   .connected-detail {
     overflow: visible;
+  }
+
+  .remote-update,
+  .remote-command-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .remote-file-control {
+    min-height: 46px;
   }
 
   .console-header {

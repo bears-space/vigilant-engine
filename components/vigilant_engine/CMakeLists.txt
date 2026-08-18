@@ -145,6 +145,10 @@ set(vigilant_engine_srcs
     "src/websocket.c"
 )
 
+if(CONFIG_VE_ENABLE_WIFI_MASTER)
+    list(APPEND vigilant_engine_srcs "src/master.c")
+endif()
+
 if(CONFIG_VE_ENABLE_I2C)
     list(APPEND vigilant_engine_srcs "src/i2c.c")
 endif()
