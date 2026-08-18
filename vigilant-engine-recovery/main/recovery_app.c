@@ -4,6 +4,7 @@
 #include "esp_event.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
+#include "esp_mac.h"
 #include "esp_netif.h"
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
@@ -16,7 +17,7 @@
 static const char* TAG = "ve_recovery";
 
 // ---- AP Config ----
-#define RECOVERY_AP_SSID "VE-Recovery"
+#define RECOVERY_AP_SSID_PREFIX "VE-Recovery-"
 #define RECOVERY_AP_PASS \
     "starstreak"  // >= 8 chars for WPA2; set "" for open AP
 #define RECOVERY_AP_CHANNEL 6
@@ -103,22 +104,18 @@ static const esp_partition_t* find_ota0_partition(void) {
     return p;
 }
 
-static esp_err_t boot_post_handler(httpd_req_t* req) {
+static esp_err_t boot_ota0_partition(void) {
     const esp_partition_t* ota0 = find_ota0_partition();
     if (!ota0) {
         ESP_LOGE(TAG, "ota_0 partition not found");
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
-                            "ota_0 not found");
-        return ESP_FAIL;
+        return ESP_ERR_NOT_FOUND;
     }
 
     esp_err_t err = esp_ota_set_boot_partition(ota0);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_ota_set_boot_partition failed: %s",
                  esp_err_to_name(err));
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
-                            "set_boot_partition failed");
-        return ESP_FAIL;
+        return err;
     }
 
     ESP_LOGI(TAG, "Boot partition set to ota_0. Rebooting…");
@@ -136,6 +133,19 @@ static esp_err_t reboot_post_handler(httpd_req_t* req) {
     httpd_resp_sendstr(req, "OK. Rebooting...\n");
     schedule_restart("reboot");
     return ESP_OK;
+    vTaskDelay(pdMS_TO_TICKS(250));
+    esp_restart();
+    return ESP_OK;  // should never reach here
+}
+
+static esp_err_t boot_post_handler(httpd_req_t* req) {
+    esp_err_t boot_err = boot_ota0_partition();
+    if (boot_err != ESP_OK) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
+                            "Failed to set boot partition");
+        return boot_err;
+    }
+    return ESP_OK;  // should never reach here
 }
 
 static esp_err_t ota_post_handler(httpd_req_t* req) {
@@ -310,8 +320,17 @@ static void wifi_init_softap(void) {
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
     wifi_config_t ap_cfg = {0};
-    strncpy((char*)ap_cfg.ap.ssid, RECOVERY_AP_SSID, sizeof(ap_cfg.ap.ssid));
-    ap_cfg.ap.ssid_len = strlen(RECOVERY_AP_SSID);
+
+    // generate ssid
+    //  Generate a unique SSID for the AP based on the device's MAC address
+    uint8_t mac[6];
+    ESP_ERROR_CHECK(esp_read_mac(mac, ESP_MAC_WIFI_STA));
+    snprintf((char*)ap_cfg.ap.ssid, sizeof(ap_cfg.ap.ssid), "%s%02X%02X",
+             RECOVERY_AP_SSID_PREFIX, mac[4], mac[5]);
+    ESP_LOGI(TAG, "Device MAC: %02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1],
+             mac[2], mac[3], mac[4], mac[5]);
+
+    ap_cfg.ap.ssid_len = strlen((const char*)ap_cfg.ap.ssid);
     ap_cfg.ap.channel = RECOVERY_AP_CHANNEL;
     ap_cfg.ap.max_connection = RECOVERY_MAX_CONN;
 
@@ -329,11 +348,24 @@ static void wifi_init_softap(void) {
     ESP_ERROR_CHECK(esp_wifi_start());
 
     ESP_LOGI(TAG, "AP started: SSID='%s' PASS='%s' (IP usually 192.168.4.1)",
-             RECOVERY_AP_SSID,
+             (const char*)ap_cfg.ap.ssid,
              strlen(RECOVERY_AP_PASS) ? RECOVERY_AP_PASS : "<open>");
 }
 
 void app_main(void) {
+    /*
+
+    IMPORTANT:
+    A note to auto booting when we implement boot flags to determine if we are
+    in flight or not, etc.
+
+    We might want to skip the recovery mode if we are in flight or if we have a
+    valid boot flag set. This ensures we dont wait a long time for a device to
+    connect, when we know no device will connect in flight. Furthermore, this
+    allows for quickly recovering the device in flight.
+
+    */
+
     // NVS required for WiFi on many setups
     esp_err_t nvs = nvs_flash_init();
     if (nvs == ESP_ERR_NVS_NO_FREE_PAGES ||
@@ -352,8 +384,46 @@ void app_main(void) {
     esp_wifi_set_ps(WIFI_PS_NONE);
     start_http_server();
 
-    // Keep main task alive
-    while (true) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
+    bool device_connected = false;
+    for (size_t i = 0; i < 30 && !device_connected;
+         i++)  // wait 30 seconds for a device to connect to the AP
+    {
+        ESP_LOGI(TAG, "Waiting for device to connect to AP... (%d/30)", i + 1);
+
+        // check if a device is connected to the AP
+        wifi_sta_list_t sta_list;
+        ESP_ERROR_CHECK(esp_wifi_ap_get_sta_list(&sta_list));
+        if (sta_list.num > 0) {
+            device_connected = true;
+            ESP_LOGI(TAG, "Device connected to AP: %d device(s)", sta_list.num);
+            for (int j = 0; j < sta_list.num; j++) {
+                char mac_str[18];
+                snprintf(mac_str, sizeof(mac_str),
+                         "%02x:%02x:%02x:%02x:%02x:%02x",
+                         sta_list.sta[j].mac[0], sta_list.sta[j].mac[1],
+                         sta_list.sta[j].mac[2], sta_list.sta[j].mac[3],
+                         sta_list.sta[j].mac[4], sta_list.sta[j].mac[5]);
+
+                ESP_LOGI(TAG, "Connected device MAC: %s", mac_str);
+            }
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(1000));  // wait 1 second before checking again
+    }
+
+    if (device_connected) {
+        ESP_LOGI(TAG, "Device connected to AP");
+        while (1) {
+            vTaskDelay(pdMS_TO_TICKS(1000));  // keep the task alive
+        }
+    }
+
+    // boot into ota_0 if no device connected to the AP after 30 seconds
+    ESP_LOGI(TAG, "No device connected to AP. Booting...");
+    esp_err_t boot_err = boot_ota0_partition();
+    if (boot_err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to boot ota_0 partition: %s",
+                 esp_err_to_name(boot_err));
+        abort();
     }
 }

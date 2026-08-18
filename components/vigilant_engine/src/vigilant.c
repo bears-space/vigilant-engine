@@ -415,7 +415,6 @@ static esp_err_t wifi_apply_mode(NW_MODE mode, wifi_config_t* sta,
 esp_err_t vigilant_init(VigilantConfig VgConfig) {
     bool initializedSuccessfully =
         true;  // Assume success until a failure occurs
-    uint8_t mac[6];
 
     if (VgConfig.is_master) {
         if (VgConfig.network_mode != NW_MODE_APSTA) {
@@ -460,6 +459,8 @@ esp_err_t vigilant_init(VigilantConfig VgConfig) {
         initializedSuccessfully = false;
     }
 
+    // Generate a unique SSID for the AP based on the device's MAC address
+    uint8_t mac[6];
     ESP_ERROR_CHECK(esp_read_mac(mac, ESP_MAC_WIFI_STA));
     snprintf((char*)ap_cfg.ap.ssid, sizeof(ap_cfg.ap.ssid), "%s%02X%02X",
              CONFIG_VE_AP_SSID_PREFIX, mac[4], mac[5]);

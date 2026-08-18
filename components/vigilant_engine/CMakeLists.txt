@@ -1,6 +1,8 @@
 set(requires esp-tls nvs_flash esp_netif esp_http_server driver esp_driver_gpio esp_driver_i2c)
 idf_build_get_property(target IDF_TARGET)
 idf_build_get_property(build_dir BUILD_DIR)
+idf_build_get_property(sdkconfig SDKCONFIG)
+idf_build_get_property(sdkconfig_defaults SDKCONFIG_DEFAULTS)
 idf_build_get_property(ve_build_web VE_BUILD_WEB)
 idf_build_get_property(ve_vigilant_html VE_VIGILANT_HTML)
 
@@ -8,9 +10,37 @@ idf_build_get_property(ve_vigilant_html VE_VIGILANT_HTML)
 get_filename_component(repo_root "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
 get_filename_component(frontend_dir "${CMAKE_CURRENT_LIST_DIR}/../../vigilant-engine-frontend" ABSOLUTE)
 set(vigilant_html_from_build "${build_dir}/static/vigilant/vigilant.html")
+set(disabled_frontend_html "${build_dir}/static/disabled-frontend/vigilant.html")
 set(vigilant_html "")
+set(ve_disable_frontend OFF)
 
-if(ve_vigilant_html)
+if(CONFIG_VE_DISABLE_FRONTEND)
+    set(ve_disable_frontend ON)
+endif()
+
+set(ve_config_files "${sdkconfig}")
+list(APPEND ve_config_files ${sdkconfig_defaults})
+foreach(config_file IN LISTS ve_config_files)
+    if(config_file AND EXISTS "${config_file}")
+        set(ve_disable_frontend_line "")
+        file(STRINGS "${config_file}" ve_disable_frontend_line
+            REGEX "^CONFIG_VE_DISABLE_FRONTEND=y$"
+        )
+        if(ve_disable_frontend_line)
+            set(ve_disable_frontend ON)
+        endif()
+    endif()
+endforeach()
+
+if(ve_disable_frontend)
+    get_filename_component(disabled_frontend_html_dir "${disabled_frontend_html}" DIRECTORY)
+    file(MAKE_DIRECTORY "${disabled_frontend_html_dir}")
+    file(WRITE "${disabled_frontend_html}"
+        "Frontend embed disabled in Kconfig. You can still access the device function through the api though."
+    )
+    set(vigilant_html "${disabled_frontend_html}")
+    message(STATUS "Embedding disabled frontend placeholder at ${vigilant_html}")
+elseif(ve_vigilant_html)
     if(IS_ABSOLUTE "${ve_vigilant_html}")
         set(vigilant_html "${ve_vigilant_html}")
     else()

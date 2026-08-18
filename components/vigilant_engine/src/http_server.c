@@ -1,5 +1,3 @@
-// http_server.c
-
 #include "http_server.h"
 
 #include <errno.h>

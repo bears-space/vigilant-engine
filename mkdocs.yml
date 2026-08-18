@@ -1,6 +1,8 @@
 site_name: Vigilant Engine Documentation
 site_description: Documentation for the Vigilant Engine ESP-IDF framework
 site_dir: site
+repo_name: GitHub
+repo_url: https://github.com/bears-space/vigilant-engine
 
 nav:
   - Home: index.md
@@ -8,6 +10,7 @@ nav:
   - Build & Flash: build-flash.md
   - Project Layout: project-layout.md
   - Firmware Features: features.md
+  - Telemetry Pipeline: telemetry-pipeline.md
   - Configuration: config.md
   - WiFi Master Mode: wifi-master.md
   - Recovery & OTA: recovery-ota.md
@@ -23,4 +26,17 @@ markdown_extensions:
   - toc:
       permalink: true
 
-theme: readthedocs
+plugins:
+  - search
+  - mermaid2
+
+hooks:
+  - docs/mkdocs_hooks.py
+
+watch:
+  - docs/mkdocs_hooks.py
+  - docs/overrides/
+
+theme:
+  name: readthedocs
+  custom_dir: docs/overrides

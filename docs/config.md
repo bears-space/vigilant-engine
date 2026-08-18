@@ -142,3 +142,7 @@ This setting only compiles the feature. The runtime `VigilantConfig.is_master` f
 
 **default**: `0`
 ___
+## Vigilant Engine Settings
+___
+#### `VE_DISABLE_FRONTEND`, **bool**
+Option to disable the frontend embed for the main app, to save flash space. API routes will still be accessible.
