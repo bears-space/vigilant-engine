@@ -122,6 +122,24 @@
     </li>
         </ul>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#menuconfig-settings-recovery">Menuconfig Settings (Recovery)</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_recovery_network_mode-choice">VE_RECOVERY_NETWORK_MODE, choice</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#options_3">Options:</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_recovery_sta_ssid-string">VE_RECOVERY_STA_SSID, string</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_recovery_sta_password-string">VE_RECOVERY_STA_PASSWORD, string</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_recovery_ap_ssid_prefix-string">VE_RECOVERY_AP_SSID_PREFIX, string</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_recovery_ap_password-string">VE_RECOVERY_AP_PASSWORD, string</a>
+    </li>
+        </ul>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#vigilant-engine-settings">Vigilant Engine Settings</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#ve_disable_frontend-bool">VE_DISABLE_FRONTEND, bool</a>
@@ -271,6 +289,35 @@
 <p>The password for the WiFi Access Point (AP) mode of the Vigilant Engine.</p>
 <p><strong>default</strong>: <code>"starstreak"</code></p>
 <hr />
+<h2 id="menuconfig-settings-recovery">Menuconfig Settings (Recovery)<a class="headerlink" href="#menuconfig-settings-recovery" title="Permanent link">&para;</a></h2>
+<hr />
+<h4 id="ve_recovery_network_mode-choice"><code>VE_RECOVERY_NETWORK_MODE</code>, <strong>choice</strong><a class="headerlink" href="#ve_recovery_network_mode-choice" title="Permanent link">&para;</a></h4>
+<p>Select the recovery firmware network mode.</p>
+<h6 id="options_3">Options:<a class="headerlink" href="#options_3" title="Permanent link">&para;</a></h6>
+<ul>
+<li><code>VE_RECOVERY_NETWORK_MODE_AP</code> Creates a recovery access point</li>
+<li><code>VE_RECOVERY_NETWORK_MODE_STA</code> Connects recovery to an existing WiFi network</li>
+<li><code>VE_RECOVERY_NETWORK_MODE_APSTA</code> Enables both interfaces</li>
+</ul>
+<p><strong>default</strong>: <code>VE_RECOVERY_NETWORK_MODE_AP</code></p>
+<hr />
+<h4 id="ve_recovery_sta_ssid-string"><code>VE_RECOVERY_STA_SSID</code>, <strong>string</strong><a class="headerlink" href="#ve_recovery_sta_ssid-string" title="Permanent link">&para;</a></h4>
+<p>The WiFi network the recovery firmware joins in <code>STA</code> or <code>AP+STA</code> mode.</p>
+<p><strong>default</strong>: <code>"starstreak"</code></p>
+<hr />
+<h4 id="ve_recovery_sta_password-string"><code>VE_RECOVERY_STA_PASSWORD</code>, <strong>string</strong><a class="headerlink" href="#ve_recovery_sta_password-string" title="Permanent link">&para;</a></h4>
+<p>The password for the recovery station network. Leave it empty for an open network.</p>
+<p><strong>default</strong>: <code>"starstreak"</code></p>
+<hr />
+<h4 id="ve_recovery_ap_ssid_prefix-string"><code>VE_RECOVERY_AP_SSID_PREFIX</code>, <strong>string</strong><a class="headerlink" href="#ve_recovery_ap_ssid_prefix-string" title="Permanent link">&para;</a></h4>
+<p>The recovery access point prefix. The firmware appends the final two MAC address bytes.</p>
+<p><strong>default</strong>: <code>"VE-Recovery-"</code></p>
+<hr />
+<h4 id="ve_recovery_ap_password-string"><code>VE_RECOVERY_AP_PASSWORD</code>, <strong>string</strong><a class="headerlink" href="#ve_recovery_ap_password-string" title="Permanent link">&para;</a></h4>
+<p>The recovery access point password. It must be empty for an open network or contain 8 to 63
+characters.</p>
+<p><strong>default</strong>: <code>"starstreak"</code></p>
+<hr />
 <h2 id="vigilant-engine-settings">Vigilant Engine Settings<a class="headerlink" href="#vigilant-engine-settings" title="Permanent link">&para;</a></h2>
 <hr />
 <h4 id="ve_disable_frontend-bool"><code>VE_DISABLE_FRONTEND</code>, <strong>bool</strong><a class="headerlink" href="#ve_disable_frontend-bool" title="Permanent link">&para;</a></h4>
@@ -290,7 +337,7 @@
   </div>
 
   <p>
-      Based on commit <a href="https://github.com/bears-space/vigilant-engine/tree/0de04d5176c647a5a6f56ae0778c2ae5ca628b1a" target="_blank" rel="noopener noreferrer">0de04d5</a> -
+      Based on commit <a href="https://github.com/bears-space/vigilant-engine/tree/b4293fcfee5b06685fd6341edc4c519640910e21" target="_blank" rel="noopener noreferrer">b4293fc</a> -
     <a href="https://github.com/bears-space/vigilant-engine" target="_blank" rel="noopener noreferrer">GitHub Repository</a>
      - Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
   </p>
