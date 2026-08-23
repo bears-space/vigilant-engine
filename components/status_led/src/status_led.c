@@ -11,7 +11,7 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "led_strip.h"
-#include "led_strip_rmt.h"  // this is ws2812b specific
+#include "led_strip_rmt.h"
 #include "sdkconfig.h"
 
 #if defined(CONFIG_VE_ENABLE_STATUS_LED)
@@ -54,12 +54,9 @@ static struct {
     uint8_t gpio;
     bool running;
     blink_output_t output;
-#if defined(CONFIG_VE_LED_TYPE_WS2812B) || \
-    defined(CONFIG_VE_STATUS_LED_MODE_RGB)
     uint8_t red;
     uint8_t green;
     uint8_t blue;
-#endif
 } s_blink = {0};
 
 static uint8_t led_on = 1;
@@ -165,7 +162,7 @@ static esp_err_t status_led_set_rgb_once(uint8_t red, uint8_t green,
                                          uint8_t blue) {
 #if (!ENABLE_LED)
     return ESP_OK;
-#elif defined(CONFIG_VE_LED_TYPE_WS2812B)
+#else
     return ws2812b_status_led_set_rgb(red, green, blue);
 #endif
 }
@@ -173,7 +170,7 @@ static esp_err_t status_led_set_rgb_once(uint8_t red, uint8_t green,
 static esp_err_t status_led_off_once(void) {
 #if (!ENABLE_LED)
     return ESP_OK;
-#elif defined(CONFIG_VE_LED_TYPE_WS2812B)  // elif remains for future LED types
+#else
     return ws2812b_status_led_off();
 #endif
 }
@@ -358,8 +355,6 @@ esp_err_t configure_led() {
     }
 #endif
 #if ENABLE_LED
-#if defined(CONFIG_VE_LED_TYPE_WS2812B)  // Initialization for WS2812B LED strip
-                                         // using RMT peripheral
     ESP_LOGI(TAG, "Initializing WS2812B status LED");
     if (s_strip)
         return status_led_enable_log_feedback();  // already initialized
@@ -391,7 +386,6 @@ esp_err_t configure_led() {
         return status_led_enable_log_feedback();
     }
     return off_err;
-#endif
     ESP_LOGI(TAG, "Done initializing status LED");
 #else
     ESP_LOGI(TAG, "ENABLE_LED is false, skipping status LED initialization");
@@ -410,15 +404,14 @@ static esp_err_t blink_apply_state(void) {
             status_led_unlock();
             return ESP_OK;
         }
-#if defined(CONFIG_VE_LED_TYPE_WS2812B)  // again, if remains for future LED
-                                         // types
+
         case BLINK_OUTPUT_WS2812B:
             if (s_blink.state) {
                 return ws2812b_status_led_set_rgb(s_blink.red, s_blink.green,
                                                   s_blink.blue);
             }
             return ws2812b_status_led_off();
-#endif
+
         case BLINK_OUTPUT_NONE:
         default:
             return ESP_OK;
@@ -508,7 +501,6 @@ esp_err_t status_led_blink_start(uint32_t on_ms, uint32_t off_ms,
     return ESP_OK;
 }
 
-#if defined(CONFIG_VE_LED_TYPE_WS2812B)
 static esp_err_t status_led_blink_start_ws2812b(uint32_t on_ms, uint32_t off_ms,
                                                 uint8_t red, uint8_t green,
                                                 uint8_t blue) {
@@ -544,7 +536,6 @@ static esp_err_t status_led_blink_start_ws2812b(uint32_t on_ms, uint32_t off_ms,
 
     return ESP_OK;
 }
-#endif
 
 esp_err_t status_led_blink_stop(void) {
     // Terminate task and set the active LED output to off
@@ -573,8 +564,6 @@ esp_err_t status_led_set_state(status_state_t state) {
     }
 #endif
 
-#if defined(CONFIG_VE_LED_TYPE_WS2812B)  // again, if remains for future LED
-                                         // types
     switch (state) {
         case STATUS_STATE_INFO:
             return status_led_blink_start_ws2812b(1000, 1000, 0, 255, 0);
@@ -586,7 +575,4 @@ esp_err_t status_led_set_state(status_state_t state) {
         default:
             return status_led_blink_stop();
     }
-#else
-    return status_led_blink_stop();
-#endif
 }
