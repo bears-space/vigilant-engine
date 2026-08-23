@@ -23,4 +23,25 @@ menu "Vigilant Engine Configuration: LEDs"
         default 8
         depends on VE_LED_TYPE_WS2812B
 
+    config VE_LOG_INFO_PULSE_MS
+        int "Log Info Pulse Duration (ms)"
+        default 35
+        depends on VE_ENABLE_STATUS_LED
+        help
+            Set the duration of the pulse for log info events in milliseconds.
+
+    config VE_LOG_WARN_PULSE_MS
+        int "Log Warning Pulse Duration (ms)"
+        default 80
+        depends on VE_ENABLE_STATUS_LED
+        help
+            Set the duration of the pulse for log warning events in milliseconds.
+
+    config VE_LOG_ERROR_PULSE_MS
+        int "Log Error Pulse Duration (ms)"
+        default 200
+        depends on VE_ENABLE_STATUS_LED
+        help
+            Set the duration of the pulse for log error events in milliseconds.
+
 endmenu

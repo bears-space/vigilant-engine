@@ -28,9 +28,6 @@
 static const char* TAG = "status_led";
 
 #define LOG_FEEDBACK_QUEUE_LEN 32
-#define LOG_INFO_PULSE_MS 35
-#define LOG_WARN_PULSE_MS 80
-#define LOG_ERROR_BLINK_MS 300
 
 typedef enum {
     BLINK_OUTPUT_NONE = 0,
@@ -266,9 +263,9 @@ static void status_led_log_feedback_task(void* arg) {
         }
 
         if (event == STATUS_LED_LOG_EVENT_WARN) {
-            status_led_pulse(255, 255, 0, LOG_WARN_PULSE_MS);
+            status_led_pulse(255, 255, 0, CONFIG_VE_LOG_WARN_PULSE_MS);
         } else if (event == STATUS_LED_LOG_EVENT_INFO) {
-            status_led_pulse(0, 255, 0, LOG_INFO_PULSE_MS);
+            status_led_pulse(0, 255, 0, CONFIG_VE_LOG_INFO_PULSE_MS);
         }
     }
 }
@@ -511,8 +508,9 @@ esp_err_t status_led_set_state(status_state_t state) {
         case STATUS_STATE_WARNING:
             return status_led_blink_start_ws2812b(600, 600, 255, 255, 0);
         case STATUS_STATE_ERROR:
-            return status_led_blink_start_ws2812b(
-                LOG_ERROR_BLINK_MS, LOG_ERROR_BLINK_MS, 255, 0, 0);
+            return status_led_blink_start_ws2812b(CONFIG_VE_LOG_ERROR_PULSE_MS,
+                                                  CONFIG_VE_LOG_ERROR_PULSE_MS,
+                                                  255, 0, 0);
         default:
             return status_led_blink_stop();
     }
