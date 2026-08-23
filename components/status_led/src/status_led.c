@@ -14,7 +14,11 @@
 #include "led_strip_rmt.h"
 #include "sdkconfig.h"
 
-#if defined(CONFIG_VE_ENABLE_STATUS_LED)
+#if defined( \
+    CONFIG_VE_ENABLE_STATUS_LED)  // this is needed because if
+                                  // VE_ENABLE_STATUS_LED is not set, the
+                                  // Kconfig.projbuild file will not define
+                                  // CONFIG_VE_ENABLE_STATUS_LED
 #define ENABLE_LED 1
 #else
 #define ENABLE_LED 0
@@ -22,18 +26,7 @@
 
 static const char* TAG = "status_led";
 
-/*
-Choose mode depending on board or preference
-
-BLINK mode:
-- SLOW   (2s)    = Info
-- MEDIUM (700ms) = Warning
-- FAST   (100ms) = Error
-RGB mode:
-- GREEN = Info
-- YELLOW = Warning
-- RED   = Error
-*/
+#if ENABLE_LED
 
 #define LOG_FEEDBACK_QUEUE_LEN 32
 #define LOG_INFO_PULSE_MS 35
@@ -43,9 +36,7 @@ RGB mode:
 typedef enum {
     BLINK_OUTPUT_NONE = 0,
     BLINK_OUTPUT_GPIO,
-#if defined(CONFIG_VE_LED_TYPE_WS2812B)
     BLINK_OUTPUT_WS2812B,
-#endif
 } blink_output_t;
 
 static struct {
@@ -63,8 +54,6 @@ static uint8_t led_on = 1;
 static uint8_t led_off = 0;
 
 static TaskHandle_t s_blink_task = NULL;
-
-#if ENABLE_LED
 static SemaphoreHandle_t s_led_mutex = NULL;
 
 typedef enum {
@@ -109,15 +98,7 @@ static void status_led_unlock(void) {
         xSemaphoreGive(s_led_mutex);
     }
 }
-#else
-static esp_err_t status_led_ensure_mutex(void) { return ESP_OK; }
 
-static esp_err_t status_led_lock(void) { return status_led_ensure_mutex(); }
-
-static void status_led_unlock(void) {}
-#endif
-
-#if defined(CONFIG_VE_LED_TYPE_WS2812B)
 static led_strip_handle_t s_strip = NULL;
 static esp_err_t ws2812b_status_led_off(
     void) {  // Clear the LED strip (turn off all LEDs)
@@ -133,9 +114,6 @@ static esp_err_t ws2812b_status_led_off(
 }
 
 static esp_err_t ws2812b_status_led_set_rgb(uint8_t r, uint8_t g, uint8_t b) {
-#if !ENABLE_LED
-    return ESP_OK;
-#else
     if (!s_strip) return ESP_ERR_INVALID_STATE;
     esp_err_t err = status_led_lock();
     if (err != ESP_OK) {
@@ -149,31 +127,18 @@ static esp_err_t ws2812b_status_led_set_rgb(uint8_t r, uint8_t g, uint8_t b) {
 
     status_led_unlock();
     return err;
-#endif
 }
 
 static esp_err_t status_led_blink_start_ws2812b(uint32_t on_ms, uint32_t off_ms,
                                                 uint8_t red, uint8_t green,
                                                 uint8_t blue);
-#endif
 
-#if ENABLE_LED
 static esp_err_t status_led_set_rgb_once(uint8_t red, uint8_t green,
                                          uint8_t blue) {
-#if (!ENABLE_LED)
-    return ESP_OK;
-#else
     return ws2812b_status_led_set_rgb(red, green, blue);
-#endif
 }
 
-static esp_err_t status_led_off_once(void) {
-#if (!ENABLE_LED)
-    return ESP_OK;
-#else
-    return ws2812b_status_led_off();
-#endif
-}
+static esp_err_t status_led_off_once(void) { return ws2812b_status_led_off(); }
 
 static const char* skip_ansi_sequence(const char* fmt) {
     if (*fmt != '\033') {
@@ -308,12 +273,8 @@ static void status_led_log_feedback_task(void* arg) {
         }
     }
 }
-#endif
 
 esp_err_t status_led_enable_log_feedback(void) {
-#if (!ENABLE_LED)
-    return ESP_OK;
-#else
     if (s_log_hook_installed) {
         return ESP_OK;
     }
@@ -340,21 +301,13 @@ esp_err_t status_led_enable_log_feedback(void) {
     s_orig_vprintf = esp_log_set_vprintf(status_led_log_vprintf);
     s_log_hook_installed = true;
     return ESP_OK;
-#endif
 }
 
 esp_err_t configure_led() {
-    // Don't initialize if VE_ENABLE_STATUS_LED is unset
-    if (!ENABLE_LED) {
-        return ESP_OK;
-    }
-#if ENABLE_LED
     esp_err_t mutex_err = status_led_ensure_mutex();
     if (mutex_err != ESP_OK) {
         return mutex_err;
     }
-#endif
-#if ENABLE_LED
     ESP_LOGI(TAG, "Initializing WS2812B status LED");
     if (s_strip)
         return status_led_enable_log_feedback();  // already initialized
@@ -387,10 +340,6 @@ esp_err_t configure_led() {
     }
     return off_err;
     ESP_LOGI(TAG, "Done initializing status LED");
-#else
-    ESP_LOGI(TAG, "ENABLE_LED is false, skipping status LED initialization");
-#endif
-    return status_led_enable_log_feedback();
 }
 
 static esp_err_t blink_apply_state(void) {
@@ -553,16 +502,9 @@ esp_err_t status_led_blink_stop(void) {
 }
 
 esp_err_t status_led_set_state(status_state_t state) {
-    // No states set if VE_ENABLE_STATUS_LED unset
-#if (!ENABLE_LED)
-    return ESP_OK;
-#endif
-
-#if ENABLE_LED
     if (s_log_error_latched && state != STATUS_STATE_ERROR) {
         return ESP_OK;
     }
-#endif
 
     switch (state) {
         case STATUS_STATE_INFO:
@@ -576,3 +518,5 @@ esp_err_t status_led_set_state(status_state_t state) {
             return status_led_blink_stop();
     }
 }
+
+#endif  // led is disabled, so provide empty implementations of the functions
