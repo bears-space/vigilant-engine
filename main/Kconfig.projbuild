@@ -72,6 +72,8 @@ menu "Vigilant Engine Configuration: LEDs"
 endmenu
 
 menu "Vigilant Engine Configuration: WiFi"
+    depends on SOC_WIFI_SUPPORTED
+
     # --- Wifi Settings ---
     config VE_STA_SSID
         string "WiFi STA SSID"
@@ -99,6 +101,8 @@ menu "Vigilant Engine Configuration: WiFi"
         help
             The password for the WiFi Access Point (AP) mode of the Vigilant Engine.
 endmenu
+
+rsource "../vigilant-engine-recovery/Kconfig.network"
 
 menu "Vigilant Engine Configuration: I2C"
     config VE_ENABLE_I2C

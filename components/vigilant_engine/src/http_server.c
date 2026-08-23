@@ -1,7 +1,6 @@
 #include "http_server.h"
 
 #include <esp_system.h>
-#include <esp_wifi.h>
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,6 +18,7 @@
 #include "nvs_flash.h"
 #include "ota_http.h"
 #include "sdkconfig.h"
+#include "soc/soc_caps.h"
 #include "vigilant.h"
 #include "websocket.h"
 
@@ -457,7 +457,7 @@ esp_err_t http_server_stop(void) {
     return ESP_OK;
 }
 
-#if !CONFIG_IDF_TARGET_LINUX
+#if defined(SOC_WIFI_SUPPORTED) && SOC_WIFI_SUPPORTED
 static void connect_handler(void* arg, esp_event_base_t event_base,
                             int32_t event_id, void* event_data) {
     (void)arg;
@@ -467,12 +467,14 @@ static void connect_handler(void* arg, esp_event_base_t event_base,
 
     http_server_start();
 }
-#endif  // !CONFIG_IDF_TARGET_LINUX
+#endif
 
 esp_err_t http_server_register_event_handlers(void) {
+#if defined(SOC_WIFI_SUPPORTED) && SOC_WIFI_SUPPORTED
     // Start server when we get an IP
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
                                                &connect_handler, NULL));
+#endif
 
     return ESP_OK;
 }

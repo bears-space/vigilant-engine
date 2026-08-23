@@ -1,0 +1,52 @@
+menu "Vigilant Engine Configuration: Recovery"
+    depends on SOC_WIFI_SUPPORTED
+
+    choice VE_RECOVERY_NETWORK_MODE
+        prompt "Recovery network mode"
+        default VE_RECOVERY_NETWORK_MODE_AP
+        help
+            Select how the recovery firmware connects to WiFi. AP creates a
+            recovery access point, STA joins an existing network, and AP+STA
+            enables both interfaces.
+
+        config VE_RECOVERY_NETWORK_MODE_AP
+            bool "AP"
+
+        config VE_RECOVERY_NETWORK_MODE_STA
+            bool "STA"
+
+        config VE_RECOVERY_NETWORK_MODE_APSTA
+            bool "AP+STA"
+    endchoice
+
+    config VE_RECOVERY_STA_SSID
+        string "Recovery STA SSID"
+        default "starstreak"
+        depends on VE_RECOVERY_NETWORK_MODE_STA || VE_RECOVERY_NETWORK_MODE_APSTA
+        help
+            The SSID of the WiFi network the recovery firmware should join.
+
+    config VE_RECOVERY_STA_PASSWORD
+        string "Recovery STA password"
+        default "starstreak"
+        depends on VE_RECOVERY_NETWORK_MODE_STA || VE_RECOVERY_NETWORK_MODE_APSTA
+        help
+            The password of the WiFi network the recovery firmware should
+            join. Leave empty for an open network.
+
+    config VE_RECOVERY_AP_SSID_PREFIX
+        string "Recovery AP SSID prefix"
+        default "VE-Recovery-"
+        depends on VE_RECOVERY_NETWORK_MODE_AP || VE_RECOVERY_NETWORK_MODE_APSTA
+        help
+            Prefix for the recovery access point SSID. The last two bytes of
+            the device MAC address are appended to keep the SSID unique.
+
+    config VE_RECOVERY_AP_PASSWORD
+        string "Recovery AP password"
+        default "starstreak"
+        depends on VE_RECOVERY_NETWORK_MODE_AP || VE_RECOVERY_NETWORK_MODE_APSTA
+        help
+            Password for the recovery access point. Use either an empty value
+            for an open access point or a password between 8 and 63 characters.
+endmenu

@@ -105,6 +105,38 @@ The password for the WiFi Access Point (AP) mode of the Vigilant Engine.
 
 **default**: `"starstreak"`
 ___
+## Menuconfig Settings (Recovery)
+___
+#### `VE_RECOVERY_NETWORK_MODE`, **choice**
+Select the recovery firmware network mode.
+###### Options:
+- `VE_RECOVERY_NETWORK_MODE_AP` Creates a recovery access point
+- `VE_RECOVERY_NETWORK_MODE_STA` Connects recovery to an existing WiFi network
+- `VE_RECOVERY_NETWORK_MODE_APSTA` Enables both interfaces
+
+**default**: `VE_RECOVERY_NETWORK_MODE_AP`
+___
+#### `VE_RECOVERY_STA_SSID`, **string**
+The WiFi network the recovery firmware joins in `STA` or `AP+STA` mode.
+
+**default**: `"starstreak"`
+___
+#### `VE_RECOVERY_STA_PASSWORD`, **string**
+The password for the recovery station network. Leave it empty for an open network.
+
+**default**: `"starstreak"`
+___
+#### `VE_RECOVERY_AP_SSID_PREFIX`, **string**
+The recovery access point prefix. The firmware appends the final two MAC address bytes.
+
+**default**: `"VE-Recovery-"`
+___
+#### `VE_RECOVERY_AP_PASSWORD`, **string**
+The recovery access point password. It must be empty for an open network or contain 8 to 63
+characters.
+
+**default**: `"starstreak"`
+___
 ## Vigilant Engine Settings
 ___
 #### `VE_DISABLE_FRONTEND`, **bool**

@@ -6,6 +6,7 @@
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 #include "esp_system.h"
+#include "soc/soc_caps.h"
 #include "status_led.h"
 
 static const char* TAG_OTA = "ota_http";
@@ -19,6 +20,7 @@ extern const unsigned char update_html_end[] asm(
 #define OTA_RECV_BUF_SIZE 1024
 
 static esp_err_t reboot_factory_handler(httpd_req_t* req) {
+#if defined(SOC_WIFI_SUPPORTED) && SOC_WIFI_SUPPORTED
     const esp_partition_t* factory = esp_partition_find_first(
         ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_FACTORY, NULL);
 
@@ -35,6 +37,11 @@ static esp_err_t reboot_factory_handler(httpd_req_t* req) {
     ESP_ERROR_CHECK(esp_ota_set_boot_partition(factory));
     esp_restart();
     return ESP_OK;
+#else
+    return httpd_resp_send_err(
+        req, HTTPD_501_METHOD_NOT_IMPLEMENTED,
+        "Recovery mode is unavailable: Wi-Fi is not supported");
+#endif
 }
 
 static esp_err_t dashboard_get_handler(httpd_req_t* req) {

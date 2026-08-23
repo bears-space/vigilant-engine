@@ -13,7 +13,7 @@
 #define I2C_SDA_IO CONFIG_VE_I2C_SDA_IO
 #define I2C_PORT I2C_NUM_0
 #define I2C_FREQ_HZ CONFIG_VE_I2C_FREQ_HZ
-#define I2C_TIMEOUT_MS 50
+#define I2C_TIMEOUT_MS 100
 
 static const char* TAG = "ve_i2c";
 static i2c_master_bus_handle_t s_i2c_bus = NULL;
@@ -183,42 +183,69 @@ esp_err_t i2c_remove_device(VigilantI2CDevice* device) {
     return err;
 }
 
-esp_err_t i2c_set_reg8(VigilantI2CDevice* device, uint8_t reg, uint8_t value) {
+esp_err_t i2c_read_regs(VigilantI2CDevice* device, uint8_t reg, uint8_t* data,
+                        size_t len) {
     if (!device) {
-        ESP_LOGE(TAG, "Cannot write reg 0x%02X: device object is NULL", reg);
+        ESP_LOGE(TAG, "Cannot read register 0x%02X: device object is NULL",
+                 reg);
         return ESP_ERR_INVALID_ARG;
     }
     if (!device->handle) {
         ESP_LOGE(TAG,
-                 "Cannot write reg 0x%02X: device 0x%02X has no handle. Call "
-                 "i2c_add_device() first.",
+                 "Cannot read register 0x%02X: device 0x%02X has no handle. "
+                 "Call i2c_add_device() first.",
                  reg, (unsigned int)device->address);
         return ESP_ERR_INVALID_ARG;
     }
+    if (!data && len > 0) {
+        ESP_LOGE(TAG, "Cannot read register 0x%02X: output buffer is NULL",
+                 reg);
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (len == 0) {
+        return ESP_OK;
+    }
 
-    uint8_t payload[] = {reg, value};
-    return i2c_master_transmit(device->handle, payload, sizeof(payload), 100);
+    return i2c_master_transmit_receive(device->handle, &reg, 1, data, len,
+                                       I2C_TIMEOUT_MS);
+}
+
+esp_err_t i2c_write_regs(VigilantI2CDevice* device, uint8_t reg,
+                         const uint8_t* data, size_t len) {
+    if (!device) {
+        ESP_LOGE(TAG, "Cannot write register 0x%02X: device object is NULL",
+                 reg);
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!device->handle) {
+        ESP_LOGE(TAG,
+                 "Cannot write register 0x%02X: device 0x%02X has no handle. "
+                 "Call i2c_add_device() first.",
+                 reg, (unsigned int)device->address);
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!data && len > 0) {
+        ESP_LOGE(TAG, "Cannot write register 0x%02X: data buffer is NULL", reg);
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    i2c_master_transmit_multi_buffer_info_t buffers[2] = {
+        {.write_buffer = &reg, .buffer_size = 1},
+        {.write_buffer = data, .buffer_size = len},
+    };
+    size_t buffer_count = (len > 0) ? 2 : 1;
+
+    return i2c_master_multi_buffer_transmit(device->handle, buffers,
+                                            buffer_count, I2C_TIMEOUT_MS);
+}
+
+esp_err_t i2c_set_reg8(VigilantI2CDevice* device, uint8_t reg, uint8_t value) {
+    return i2c_write_regs(device, reg, &value, 1);
 }
 
 esp_err_t i2c_read_reg8(VigilantI2CDevice* device, uint8_t reg,
                         uint8_t* value) {
-    if (!device) {
-        ESP_LOGE(TAG, "Cannot read reg 0x%02X: device object is NULL", reg);
-        return ESP_ERR_INVALID_ARG;
-    }
-    if (!device->handle) {
-        ESP_LOGE(TAG,
-                 "Cannot read reg 0x%02X: device 0x%02X has no handle. Call "
-                 "i2c_add_device() first.",
-                 reg, (unsigned int)device->address);
-        return ESP_ERR_INVALID_ARG;
-    }
-    if (!value) {
-        ESP_LOGE(TAG, "Cannot read reg 0x%02X: output buffer is NULL", reg);
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    return i2c_master_transmit_receive(device->handle, &reg, 1, value, 1, 100);
+    return i2c_read_regs(device, reg, value, 1);
 }
 
 esp_err_t i2c_whoami_check(VigilantI2CDevice* device) {

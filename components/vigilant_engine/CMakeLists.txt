@@ -1,5 +1,6 @@
 set(requires esp-tls nvs_flash esp_netif esp_http_server esp_driver_i2c status_led)
 idf_build_get_property(target IDF_TARGET)
+idf_build_get_property(idf_path IDF_PATH)
 idf_build_get_property(build_dir BUILD_DIR)
 idf_build_get_property(sdkconfig SDKCONFIG)
 idf_build_get_property(sdkconfig_defaults SDKCONFIG_DEFAULTS)
@@ -134,7 +135,20 @@ endif()
 if(${target} STREQUAL "linux")
     list(APPEND requires esp_stubs)
 else()
-    list(APPEND requires esp_wifi esp_eth)
+    list(APPEND requires esp_eth)
+
+    # Component dependencies are resolved during early expansion, before
+    # CONFIG_SOC_WIFI_SUPPORTED is available. Read the target's canonical SoC
+    # capability header so esp_wifi is required only for native Wi-Fi targets.
+    set(soc_caps_header "${idf_path}/components/soc/${target}/include/soc/soc_caps.h")
+    if(EXISTS "${soc_caps_header}")
+        file(STRINGS "${soc_caps_header}" soc_wifi_supported
+            REGEX "^[ \t]*#define[ \t]+SOC_WIFI_SUPPORTED[ \t]+1([ \t]|$)"
+        )
+    endif()
+    if(soc_wifi_supported)
+        list(APPEND requires esp_wifi)
+    endif()
 endif()
 
 set(vigilant_engine_srcs

@@ -1,4 +1,6 @@
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "esp_event.h"
@@ -14,21 +16,81 @@
 #include "freertos/task.h"
 #include "nvs_flash.h"
 #include "status_led.h"
+#include "sdkconfig.h"
 
 static const char* TAG = "ve_recovery";
 
-// ---- AP Config ----
-#define RECOVERY_AP_SSID_PREFIX "VE-Recovery-"
-#define RECOVERY_AP_PASS \
-    "starstreak"  // >= 8 chars for WPA2; set "" for open AP
+typedef enum {
+    RECOVERY_NETWORK_MODE_AP = 0,
+    RECOVERY_NETWORK_MODE_STA,
+    RECOVERY_NETWORK_MODE_APSTA,
+} recovery_network_mode_t;
+
+#ifdef VE_RECOVERY_USE_PARENT_CONFIG
+#include "ve_recovery_config.h"
+#else
+#if CONFIG_VE_RECOVERY_NETWORK_MODE_APSTA
+#define VE_RECOVERY_NETWORK_MODE RECOVERY_NETWORK_MODE_APSTA
+#elif CONFIG_VE_RECOVERY_NETWORK_MODE_STA
+#define VE_RECOVERY_NETWORK_MODE RECOVERY_NETWORK_MODE_STA
+#else
+#define VE_RECOVERY_NETWORK_MODE RECOVERY_NETWORK_MODE_AP
+#endif
+
+#ifndef CONFIG_VE_RECOVERY_STA_SSID
+#define CONFIG_VE_RECOVERY_STA_SSID ""
+#endif
+#ifndef CONFIG_VE_RECOVERY_STA_PASSWORD
+#define CONFIG_VE_RECOVERY_STA_PASSWORD ""
+#endif
+#ifndef CONFIG_VE_RECOVERY_AP_SSID_PREFIX
+#define CONFIG_VE_RECOVERY_AP_SSID_PREFIX ""
+#endif
+#ifndef CONFIG_VE_RECOVERY_AP_PASSWORD
+#define CONFIG_VE_RECOVERY_AP_PASSWORD ""
+#endif
+
+#define VE_RECOVERY_STA_SSID CONFIG_VE_RECOVERY_STA_SSID
+#define VE_RECOVERY_STA_PASSWORD CONFIG_VE_RECOVERY_STA_PASSWORD
+#define VE_RECOVERY_AP_SSID_PREFIX CONFIG_VE_RECOVERY_AP_SSID_PREFIX
+#define VE_RECOVERY_AP_PASSWORD CONFIG_VE_RECOVERY_AP_PASSWORD
+#endif
+
+// ---- WiFi Config ----
 #define RECOVERY_AP_CHANNEL 6
 #define RECOVERY_MAX_CONN 2
+#define RECOVERY_CONNECTION_TIMEOUT_SECONDS 30
 
 // ---- OTA ----
 #define OTA_BUF_SIZE 2048
 
 extern const unsigned char index_html_start[] asm("_binary_index_html_start");
 extern const unsigned char index_html_end[] asm("_binary_index_html_end");
+
+static volatile bool s_sta_has_ip = false;
+
+static bool recovery_mode_has_ap(void) {
+    return VE_RECOVERY_NETWORK_MODE == RECOVERY_NETWORK_MODE_AP ||
+           VE_RECOVERY_NETWORK_MODE == RECOVERY_NETWORK_MODE_APSTA;
+}
+
+static bool recovery_mode_has_sta(void) {
+    return VE_RECOVERY_NETWORK_MODE == RECOVERY_NETWORK_MODE_STA ||
+           VE_RECOVERY_NETWORK_MODE == RECOVERY_NETWORK_MODE_APSTA;
+}
+
+static const char* recovery_mode_name(void) {
+    switch (VE_RECOVERY_NETWORK_MODE) {
+        case RECOVERY_NETWORK_MODE_AP:
+            return "AP";
+        case RECOVERY_NETWORK_MODE_STA:
+            return "STA";
+        case RECOVERY_NETWORK_MODE_APSTA:
+            return "AP+STA";
+        default:
+            return "invalid";
+    }
+}
 
 static esp_err_t index_get_handler(httpd_req_t* req) {
     httpd_resp_set_type(req, "text/html");
@@ -223,49 +285,188 @@ static httpd_handle_t start_http_server(void) {
     return server;
 }
 
-static void wifi_init_softap(void) {
+static void copy_wifi_config_value(uint8_t* destination,
+                                   size_t destination_size, const char* value,
+                                   const char* name) {
+    size_t value_length = strlen(value);
+    if (value_length >= destination_size) {
+        ESP_LOGE(TAG, "%s is too long (maximum %u characters)", name,
+                 (unsigned int)(destination_size - 1));
+        abort();
+    }
+
+    memcpy(destination, value, value_length + 1);
+}
+
+static size_t copy_wifi_ssid(uint8_t* destination, size_t destination_size,
+                             const char* value, const char* name) {
+    size_t value_length = strlen(value);
+    if (value_length == 0 || value_length > destination_size) {
+        ESP_LOGE(TAG, "%s must be between 1 and %u characters", name,
+                 (unsigned int)destination_size);
+        abort();
+    }
+
+    memcpy(destination, value, value_length);
+    return value_length;
+}
+
+static void validate_wifi_password(const char* password, const char* name) {
+    size_t password_length = strlen(password);
+    if (password_length != 0 && password_length < 8) {
+        ESP_LOGE(TAG, "%s must be empty or between 8 and 63 characters", name);
+        abort();
+    }
+    if (password_length > 63) {
+        ESP_LOGE(TAG, "%s must be empty or between 8 and 63 characters", name);
+        abort();
+    }
+}
+
+static void recovery_wifi_event(void* arg, esp_event_base_t event_base,
+                                int32_t event_id, void* event_data) {
+    (void)arg;
+
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        wifi_event_sta_disconnected_t* event =
+            (wifi_event_sta_disconnected_t*)event_data;
+        s_sta_has_ip = false;
+        ESP_LOGW(TAG, "Recovery STA disconnected, reason=%d; reconnecting",
+                 event->reason);
+        esp_err_t connect_err = esp_wifi_connect();
+        if (connect_err != ESP_OK) {
+            ESP_LOGW(TAG, "Recovery STA reconnect failed: %s",
+                     esp_err_to_name(connect_err));
+        }
+    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+        ip_event_got_ip_t* event = (ip_event_got_ip_t*)event_data;
+        s_sta_has_ip = true;
+        ESP_LOGI(TAG, "Recovery STA got IP: " IPSTR,
+                 IP2STR(&event->ip_info.ip));
+    }
+}
+
+static void wifi_init_recovery(void) {
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
-    esp_netif_t* ap_netif = esp_netif_create_default_wifi_ap();
-    if (ap_netif == NULL) {
+
+    if (recovery_mode_has_sta() &&
+        esp_netif_create_default_wifi_sta() == NULL) {
+        ESP_LOGE(TAG, "esp_netif_create_default_wifi_sta failed");
+        abort();
+    }
+    if (recovery_mode_has_ap() && esp_netif_create_default_wifi_ap() == NULL) {
         ESP_LOGE(TAG, "esp_netif_create_default_wifi_ap failed");
         abort();
     }
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
 
-    wifi_config_t ap_cfg = {0};
-
-    // generate ssid
-    //  Generate a unique SSID for the AP based on the device's MAC address
-    uint8_t mac[6];
-    ESP_ERROR_CHECK(esp_read_mac(mac, ESP_MAC_WIFI_STA));
-    snprintf((char*)ap_cfg.ap.ssid, sizeof(ap_cfg.ap.ssid), "%s%02X%02X",
-             RECOVERY_AP_SSID_PREFIX, mac[4], mac[5]);
-    ESP_LOGI(TAG, "Device MAC: %02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1],
-             mac[2], mac[3], mac[4], mac[5]);
-
-    ap_cfg.ap.ssid_len = strlen((const char*)ap_cfg.ap.ssid);
-    ap_cfg.ap.channel = RECOVERY_AP_CHANNEL;
-    ap_cfg.ap.max_connection = RECOVERY_MAX_CONN;
-
-    if (strlen(RECOVERY_AP_PASS) == 0) {
-        ap_cfg.ap.authmode = WIFI_AUTH_OPEN;
-    } else {
-        strncpy((char*)ap_cfg.ap.password, RECOVERY_AP_PASS,
-                sizeof(ap_cfg.ap.password));
-        ap_cfg.ap.authmode = WIFI_AUTH_WPA2_PSK;
+    if (recovery_mode_has_sta()) {
+        ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT,
+                                                   WIFI_EVENT_STA_DISCONNECTED,
+                                                   recovery_wifi_event, NULL));
+        ESP_ERROR_CHECK(esp_event_handler_register(
+            IP_EVENT, IP_EVENT_STA_GOT_IP, recovery_wifi_event, NULL));
     }
 
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_cfg));
+    wifi_config_t ap_cfg = {0};
+    wifi_config_t sta_cfg = {0};
+
+    if (recovery_mode_has_ap()) {
+        validate_wifi_password(VE_RECOVERY_AP_PASSWORD, "Recovery AP password");
+
+        uint8_t mac[6];
+        char ap_ssid[sizeof(ap_cfg.ap.ssid) + 1];
+        ESP_ERROR_CHECK(esp_read_mac(mac, ESP_MAC_WIFI_STA));
+        int ssid_length = snprintf(ap_ssid, sizeof(ap_ssid), "%s%02X%02X",
+                                   VE_RECOVERY_AP_SSID_PREFIX, mac[4], mac[5]);
+        if (ssid_length < 0 || ssid_length >= (int)sizeof(ap_ssid)) {
+            ESP_LOGE(TAG,
+                     "Recovery AP SSID prefix is too long (the generated SSID "
+                     "must be at most 32 characters)");
+            abort();
+        }
+
+        ap_cfg.ap.ssid_len =
+            copy_wifi_ssid(ap_cfg.ap.ssid, sizeof(ap_cfg.ap.ssid), ap_ssid,
+                           "Recovery AP SSID");
+        ap_cfg.ap.channel = RECOVERY_AP_CHANNEL;
+        ap_cfg.ap.max_connection = RECOVERY_MAX_CONN;
+        copy_wifi_config_value(ap_cfg.ap.password, sizeof(ap_cfg.ap.password),
+                               VE_RECOVERY_AP_PASSWORD, "Recovery AP password");
+        ap_cfg.ap.authmode = strlen(VE_RECOVERY_AP_PASSWORD) == 0
+                                 ? WIFI_AUTH_OPEN
+                                 : WIFI_AUTH_WPA2_PSK;
+
+        ESP_LOGI(TAG,
+                 "Device MAC: %02X:%02X:%02X:%02X:%02X:%02X; recovery AP "
+                 "SSID='%s' (%s)",
+                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], ap_ssid,
+                 ap_cfg.ap.authmode == WIFI_AUTH_OPEN ? "open" : "secured");
+    }
+
+    if (recovery_mode_has_sta()) {
+        validate_wifi_password(VE_RECOVERY_STA_PASSWORD,
+                               "Recovery STA password");
+        copy_wifi_ssid(sta_cfg.sta.ssid, sizeof(sta_cfg.sta.ssid),
+                       VE_RECOVERY_STA_SSID, "Recovery STA SSID");
+        copy_wifi_config_value(
+            sta_cfg.sta.password, sizeof(sta_cfg.sta.password),
+            VE_RECOVERY_STA_PASSWORD, "Recovery STA password");
+        sta_cfg.sta.threshold.authmode = strlen(VE_RECOVERY_STA_PASSWORD) == 0
+                                             ? WIFI_AUTH_OPEN
+                                             : WIFI_AUTH_WPA2_PSK;
+    }
+
+    wifi_mode_t wifi_mode = WIFI_MODE_AP;
+    if (VE_RECOVERY_NETWORK_MODE == RECOVERY_NETWORK_MODE_STA) {
+        wifi_mode = WIFI_MODE_STA;
+    } else if (VE_RECOVERY_NETWORK_MODE == RECOVERY_NETWORK_MODE_APSTA) {
+        wifi_mode = WIFI_MODE_APSTA;
+    }
+
+    ESP_LOGI(TAG, "Starting recovery WiFi in %s mode", recovery_mode_name());
+    ESP_ERROR_CHECK(esp_wifi_set_mode(wifi_mode));
+    if (recovery_mode_has_ap()) {
+        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_cfg));
+    }
+    if (recovery_mode_has_sta()) {
+        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &sta_cfg));
+    }
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    ESP_LOGI(TAG, "AP started: SSID='%s' PASS='%s' (IP usually 192.168.4.1)",
-             (const char*)ap_cfg.ap.ssid,
-             strlen(RECOVERY_AP_PASS) ? RECOVERY_AP_PASS : "<open>");
+    if (recovery_mode_has_sta()) {
+        ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+        ESP_LOGI(TAG, "Connecting recovery STA to SSID='%s'",
+                 VE_RECOVERY_STA_SSID);
+        ESP_ERROR_CHECK(esp_wifi_connect());
+    }
+}
+
+static bool recovery_network_ready(void) {
+    if (recovery_mode_has_sta() && s_sta_has_ip) {
+        return true;
+    }
+
+    if (recovery_mode_has_ap()) {
+        wifi_sta_list_t sta_list;
+        esp_err_t list_err = esp_wifi_ap_get_sta_list(&sta_list);
+        if (list_err != ESP_OK) {
+            ESP_LOGW(TAG, "Failed to get recovery AP station list: %s",
+                     esp_err_to_name(list_err));
+            return false;
+        }
+        if (sta_list.num > 0) {
+            ESP_LOGI(TAG, "Device connected to recovery AP: %d device(s)",
+                     sta_list.num);
+            return true;
+        }
+    }
+
+    return false;
 }
 
 void app_main(void) {
@@ -302,45 +503,26 @@ void app_main(void) {
     ESP_LOGI(TAG, "Running from: label=%s subtype=0x%02x offset=0x%lx",
              running->label, running->subtype, (unsigned long)running->address);
 
-    wifi_init_softap();
+    wifi_init_recovery();
     start_http_server();
 
-    bool device_connected = false;
-    for (size_t i = 0; i < 30 && !device_connected;
-         i++)  // wait 30 seconds for a device to connect to the AP
-    {
-        ESP_LOGI(TAG, "Waiting for device to connect to AP... (%d/30)", i + 1);
-
-        // check if a device is connected to the AP
-        wifi_sta_list_t sta_list;
-        ESP_ERROR_CHECK(esp_wifi_ap_get_sta_list(&sta_list));
-        if (sta_list.num > 0) {
-            device_connected = true;
-            ESP_LOGI(TAG, "Device connected to AP: %d device(s)", sta_list.num);
-            for (int j = 0; j < sta_list.num; j++) {
-                char mac_str[18];
-                snprintf(mac_str, sizeof(mac_str),
-                         "%02x:%02x:%02x:%02x:%02x:%02x",
-                         sta_list.sta[j].mac[0], sta_list.sta[j].mac[1],
-                         sta_list.sta[j].mac[2], sta_list.sta[j].mac[3],
-                         sta_list.sta[j].mac[4], sta_list.sta[j].mac[5]);
-
-                ESP_LOGI(TAG, "Connected device MAC: %s", mac_str);
-            }
-        }
-
-        vTaskDelay(pdMS_TO_TICKS(1000));  // wait 1 second before checking again
+    bool network_ready = false;
+    for (size_t i = 0;
+         i < RECOVERY_CONNECTION_TIMEOUT_SECONDS && !network_ready; i++) {
+        ESP_LOGI(TAG, "Waiting for recovery network... (%u/%u)",
+                 (unsigned int)(i + 1), RECOVERY_CONNECTION_TIMEOUT_SECONDS);
+        network_ready = recovery_network_ready();
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
-    if (device_connected) {
-        ESP_LOGI(TAG, "Device connected to AP");
+    if (network_ready) {
+        ESP_LOGI(TAG, "Recovery network is ready");
         while (1) {
-            vTaskDelay(pdMS_TO_TICKS(1000));  // keep the task alive
+            vTaskDelay(pdMS_TO_TICKS(1000));
         }
     }
 
-    // boot into ota_0 if no device connected to the AP after 30 seconds
-    ESP_LOGI(TAG, "No device connected to AP. Booting...");
+    ESP_LOGI(TAG, "Recovery network did not become ready. Booting ota_0...");
     esp_err_t boot_err = boot_ota0_partition();
     if (boot_err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to boot ota_0 partition: %s",

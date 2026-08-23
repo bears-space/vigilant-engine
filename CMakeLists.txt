@@ -38,7 +38,7 @@ if(NOT VE_MAIN_APP_OFFSET)
     message(FATAL_ERROR "Could not find ota_0 partition offset for main firmware flashing.")
 endif()
 
-if(NOT VE_RECOVERY_APP_OFFSET)
+if(CONFIG_SOC_WIFI_SUPPORTED AND NOT VE_RECOVERY_APP_OFFSET)
     message(FATAL_ERROR "Could not find factory partition offset for recovery firmware flashing.")
 endif()
 
@@ -47,6 +47,8 @@ set(VE_RECOVERY_BUILD_DIR "${VE_BUILD_DIR}/recovery")
 set(VE_RECOVERY_BIN "${VE_RECOVERY_BUILD_DIR}/vigilant-engine-recovery.bin")
 set(VE_RECOVERY_SDKCONFIG "${VE_RECOVERY_BUILD_DIR}/sdkconfig")
 set(VE_RECOVERY_PARTITIONS_CSV "${VE_RECOVERY_PROJECT_DIR}/partitions.csv")
+set(VE_RECOVERY_CONFIG_DIR "${VE_BUILD_DIR}/generated/recovery")
+set(VE_RECOVERY_CONFIG_HEADER "${VE_RECOVERY_CONFIG_DIR}/ve_recovery_config.h")
 get_filename_component(VE_PYTHON_BIN_DIR "${VE_PYTHON}" DIRECTORY)
 get_filename_component(VE_PYTHON_ENV_PATH "${VE_PYTHON_BIN_DIR}" DIRECTORY)
 get_filename_component(VE_TOOLCHAIN_BIN_DIR "${CMAKE_C_COMPILER}" DIRECTORY)
@@ -100,35 +102,70 @@ ve_remove_default_project_bin(encrypted-app-flash)
 ve_remove_default_project_bin(encrypted-flash)
 
 esptool_py_flash_target_image(app-flash app "${VE_MAIN_APP_OFFSET}" "${VE_BUILD_DIR}/${VE_PROJECT_BIN}")
-esptool_py_flash_target_image(flash recovery "${VE_RECOVERY_APP_OFFSET}" "${VE_RECOVERY_BIN}" ALWAYS_PLAINTEXT)
 esptool_py_flash_target_image(flash app "${VE_MAIN_APP_OFFSET}" "${VE_BUILD_DIR}/${VE_PROJECT_BIN}")
 
-add_custom_target(ve_recovery_build ALL
-    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-            "${CMAKE_SOURCE_DIR}/partitions.csv"
-            "${VE_RECOVERY_PARTITIONS_CSV}"
-    COMMAND "${CMAKE_COMMAND}" -E env
-            ${VE_RECOVERY_BUILD_ENV}
-            "${CMAKE_COMMAND}"
-            -G "${CMAKE_GENERATOR}"
-            -B "${VE_RECOVERY_BUILD_DIR}"
-            -S "${VE_RECOVERY_PROJECT_DIR}"
-            "-DPYTHON_DEPS_CHECKED=1"
-            "-DPYTHON=${VE_PYTHON}"
-            "-DESP_PLATFORM=1"
-            "-DIDF_TARGET=${VE_IDF_TARGET}"
-            "-DSDKCONFIG=${VE_RECOVERY_SDKCONFIG}"
-            "-DSDKCONFIG_DEFAULTS=${VE_RECOVERY_PROJECT_DIR}/sdkconfig.defaults"
-            "-DVE_BUILD_WEB=${VE_BUILD_WEB}"
-            "-DVE_RECOVERY_HTML=${VE_RECOVERY_HTML}"
-    COMMAND "${CMAKE_COMMAND}" -E env
-            ${VE_RECOVERY_BUILD_ENV}
-            "${CMAKE_COMMAND}" --build "${VE_RECOVERY_BUILD_DIR}"
-    BYPRODUCTS "${VE_RECOVERY_BIN}" "${VE_RECOVERY_PARTITIONS_CSV}"
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-    USES_TERMINAL
-    VERBATIM
-)
+if(CONFIG_SOC_WIFI_SUPPORTED)
+    if(CONFIG_VE_RECOVERY_NETWORK_MODE_APSTA)
+        set(VE_RECOVERY_NETWORK_MODE_VALUE 2)
+    elseif(CONFIG_VE_RECOVERY_NETWORK_MODE_STA)
+        set(VE_RECOVERY_NETWORK_MODE_VALUE 1)
+    else()
+        set(VE_RECOVERY_NETWORK_MODE_VALUE 0)
+    endif()
 
-add_dependencies(ve_recovery_build app)
-add_dependencies(flash ve_recovery_build)
+    function(ve_escape_recovery_config input_name output_name)
+        set(config_value "${${input_name}}")
+        string(REPLACE "\\" "\\\\" config_value "${config_value}")
+        string(REPLACE "\"" "\\\"" config_value "${config_value}")
+        string(REPLACE "\n" "\\n" config_value "${config_value}")
+        string(REPLACE "\r" "\\r" config_value "${config_value}")
+        set(${output_name} "${config_value}" PARENT_SCOPE)
+    endfunction()
+
+    ve_escape_recovery_config(CONFIG_VE_RECOVERY_STA_SSID VE_RECOVERY_STA_SSID_VALUE)
+    ve_escape_recovery_config(CONFIG_VE_RECOVERY_STA_PASSWORD VE_RECOVERY_STA_PASSWORD_VALUE)
+    ve_escape_recovery_config(CONFIG_VE_RECOVERY_AP_SSID_PREFIX VE_RECOVERY_AP_SSID_PREFIX_VALUE)
+    ve_escape_recovery_config(CONFIG_VE_RECOVERY_AP_PASSWORD VE_RECOVERY_AP_PASSWORD_VALUE)
+
+    file(MAKE_DIRECTORY "${VE_RECOVERY_CONFIG_DIR}")
+    configure_file(
+        "${VE_RECOVERY_PROJECT_DIR}/main/ve_recovery_config.h.in"
+        "${VE_RECOVERY_CONFIG_HEADER}"
+        @ONLY
+    )
+
+    esptool_py_flash_target_image(flash recovery "${VE_RECOVERY_APP_OFFSET}" "${VE_RECOVERY_BIN}" ALWAYS_PLAINTEXT)
+
+    add_custom_target(ve_recovery_build ALL
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "${CMAKE_SOURCE_DIR}/partitions.csv"
+                "${VE_RECOVERY_PARTITIONS_CSV}"
+        COMMAND "${CMAKE_COMMAND}" -E env
+                ${VE_RECOVERY_BUILD_ENV}
+                "${CMAKE_COMMAND}"
+                -G "${CMAKE_GENERATOR}"
+                -B "${VE_RECOVERY_BUILD_DIR}"
+                -S "${VE_RECOVERY_PROJECT_DIR}"
+                "-DPYTHON_DEPS_CHECKED=1"
+                "-DPYTHON=${VE_PYTHON}"
+                "-DESP_PLATFORM=1"
+                "-DIDF_TARGET=${VE_IDF_TARGET}"
+                "-DSDKCONFIG=${VE_RECOVERY_SDKCONFIG}"
+                "-DSDKCONFIG_DEFAULTS=${VE_RECOVERY_PROJECT_DIR}/sdkconfig.defaults"
+                "-DVE_BUILD_WEB=${VE_BUILD_WEB}"
+                "-DVE_RECOVERY_HTML=${VE_RECOVERY_HTML}"
+                "-DVE_RECOVERY_CONFIG_HEADER=${VE_RECOVERY_CONFIG_HEADER}"
+        COMMAND "${CMAKE_COMMAND}" -E env
+                ${VE_RECOVERY_BUILD_ENV}
+                "${CMAKE_COMMAND}" --build "${VE_RECOVERY_BUILD_DIR}"
+        BYPRODUCTS "${VE_RECOVERY_BIN}" "${VE_RECOVERY_PARTITIONS_CSV}"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        USES_TERMINAL
+        VERBATIM
+    )
+
+    add_dependencies(ve_recovery_build app)
+    add_dependencies(flash ve_recovery_build)
+else()
+    message(STATUS "Skipping Wi-Fi recovery firmware for ${VE_IDF_TARGET}")
+endif()

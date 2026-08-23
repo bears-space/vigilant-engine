@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include "esp_err.h"
 #include "vigilant_i2c_device.h"
@@ -14,6 +15,10 @@ esp_err_t i2c_add_device(VigilantI2CDevice* device);
 esp_err_t i2c_remove_device(VigilantI2CDevice* device);
 esp_err_t i2c_set_reg8(VigilantI2CDevice* device, uint8_t reg, uint8_t value);
 esp_err_t i2c_read_reg8(VigilantI2CDevice* device, uint8_t reg, uint8_t* value);
+esp_err_t i2c_read_regs(VigilantI2CDevice* device, uint8_t reg, uint8_t* data,
+                        size_t len);
+esp_err_t i2c_write_regs(VigilantI2CDevice* device, uint8_t reg,
+                         const uint8_t* data, size_t len);
 esp_err_t i2c_whoami_check(VigilantI2CDevice* device);
 esp_err_t i2c_get_detected_devices(uint8_t* addresses, size_t max_addresses,
                                    size_t* count);

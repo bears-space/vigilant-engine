@@ -24,6 +24,8 @@ When enabled, Vigilant Engine builds the I2C driver, creates the bus during star
 - Optionally verify identity with `vigilant_i2c_whoami_check(&device)`
 - Write single-byte registers with `vigilant_i2c_set_reg8(&device, reg, value)`
 - Read single-byte registers with `vigilant_i2c_read_reg8(&device, reg, &value)`
+- For multi-byte payloads (e.g. sensor data blocks) use `vigilant_i2c_read_regs(...)` and
+  `vigilant_i2c_write_regs(...)`
 - Remove the device with `vigilant_i2c_remove_device(&device)` if you no longer need it
 
 If I2C is disabled in menuconfig, the public `vigilant_i2c_*` helpers return `ESP_ERR_NOT_SUPPORTED`.
@@ -113,6 +115,36 @@ Reads the register stored in `device->whoami_reg` and compares it against `devic
 - `ESP_ERR_INVALID_RESPONSE` The device responded, but the WHOAMI value did not match
 - `ESP_ERR_NOT_SUPPORTED` I2C support is disabled in menuconfig
 
+___
+#### `vigilant_i2c_read_regs`, **function**
+Reads a block of `len` bytes starting at register `reg`. All devices use 8-bit register addressing.
+
+###### Parameters:
+- `device` Pointer to the `VigilantI2CDevice` object to read from
+- `reg` Register address to transmit before reading
+- `data` Output buffer of at least `len` bytes
+- `len` Number of bytes to read
+
+###### Returns:
+- `ESP_OK` Block read succeeded
+- `ESP_ERR_INVALID_ARG` `device` is `NULL`, the device was not added, or `data` is `NULL` with `len > 0`
+- `ESP_ERR_NOT_SUPPORTED` I2C support is disabled in menuconfig
+
+___
+#### `vigilant_i2c_write_regs`, **function**
+Writes a block of `len` bytes to the register block starting at `reg`.
+
+###### Parameters:
+- `device` Pointer to the `VigilantI2CDevice` object to write to
+- `reg` Register address to transmit before the data
+- `data` Data buffer to write
+- `len` Number of bytes to write
+
+###### Returns:
+- `ESP_OK` Block write succeeded
+- `ESP_ERR_INVALID_ARG` `device` is `NULL`, the device was not added, or `data` is `NULL` with `len > 0`
+- `ESP_ERR_NOT_SUPPORTED` I2C support is disabled in menuconfig
+
 ## Low-level I2C functions
 
 These functions exist in the I2C component itself. In normal application code, prefer the
@@ -143,6 +175,14 @@ ___
 Low-level variant of `vigilant_i2c_read_reg8(...)`. Reads one 8-bit register from a device.
 
 ___
+#### `i2c_read_regs`, **function**
+Low-level variant of `vigilant_i2c_read_regs(...)`. Reads a block of bytes starting at a register.
+
+___
+#### `i2c_write_regs`, **function**
+Low-level variant of `vigilant_i2c_write_regs(...)`. Writes a block of bytes to a register block.
+
+___
 #### `i2c_whoami_check`, **function**
 Low-level variant of `vigilant_i2c_whoami_check(...)`. Compares the returned WHOAMI value with the expected one.
 
@@ -154,25 +194,36 @@ application startup flow.
 ## Example
 
 ```c
-VigilantI2CDevice accel = {
-    .address = 0x18,
-    .whoami_reg = 0x0F,
-    .expected_whoami = 0x33,
+// LSM6DSV320X high-G IMU (ST): accel + gyro over I2C
+VigilantI2CDevice imu = {
+    .address = 0x6A,
+    .whoami_reg = 0x0F,     // WHO_AM_I register
+    .expected_whoami = 0x70,
     .handle = NULL,
 };
 
-ESP_ERROR_CHECK(vigilant_i2c_add_device(&accel));
-ESP_ERROR_CHECK(vigilant_i2c_whoami_check(&accel));
-ESP_ERROR_CHECK(vigilant_i2c_set_reg8(&accel, 0x20, 0x57));
+ESP_ERROR_CHECK(vigilant_i2c_add_device(&imu));
+ESP_ERROR_CHECK(vigilant_i2c_whoami_check(&imu));
 
-uint8_t ctrl_reg = 0;
-ESP_ERROR_CHECK(vigilant_i2c_read_reg8(&accel, 0x20, &ctrl_reg));
+// Configure accelerometer: set ODR + full scale in CTRL1_XL (0x10)
+vigilant_i2c_write_regs(&imu, 0x10, (const uint8_t[]){0x60}, 1);
+
+// Burst-read the 12-byte data block: OUTX_L_XL (0x28) .. OUTZ_H_G (0x2D)
+uint8_t data[12] = {0};
+ESP_ERROR_CHECK(vigilant_i2c_read_regs(&imu, 0x28, data, sizeof(data)));
+
+// Single-register access works the same way
+uint8_t status = 0;
+ESP_ERROR_CHECK(vigilant_i2c_read_reg8(&imu, 0x1E, &status));
 ```
 
 Use the device-specific address, register map, and expected WHOAMI value from your peripheral datasheet.
 
 ## Notes
 
+- All devices use 8-bit register addressing
 - `vigilant_i2c_set_reg8(...)` and `vigilant_i2c_read_reg8(...)` operate on one 8-bit register at a time
+- `vigilant_i2c_read_regs(...)` / `vigilant_i2c_write_regs(...)` handle multi-byte blocks, e.g. the
+  contiguous sensor data registers most IMUs/pressure sensors expose
 - The I2C bus is shared, so multiple devices can be added as separate `VigilantI2CDevice` objects
 - `vigilant_i2c_add_device(...)` must be called before any read, write, or WHOAMI check
