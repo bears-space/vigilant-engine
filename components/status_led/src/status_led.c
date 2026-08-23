@@ -46,9 +46,6 @@ static struct {
     uint8_t blue;
 } s_blink = {0};
 
-static uint8_t led_on = 1;
-static uint8_t led_off = 0;
-
 static TaskHandle_t s_blink_task = NULL;
 static SemaphoreHandle_t s_led_mutex = NULL;
 
@@ -342,16 +339,6 @@ esp_err_t configure_led() {
 
 static esp_err_t blink_apply_state(void) {
     switch (s_blink.output) {
-        case BLINK_OUTPUT_GPIO: {
-            esp_err_t err = status_led_lock();
-            if (err != ESP_OK) {
-                return err;
-            }
-            gpio_set_level(s_blink.gpio, s_blink.state ? led_on : led_off);
-            status_led_unlock();
-            return ESP_OK;
-        }
-
         case BLINK_OUTPUT_WS2812B:
             if (s_blink.state) {
                 return ws2812b_status_led_set_rgb(s_blink.red, s_blink.green,
@@ -410,42 +397,6 @@ static esp_err_t status_led_wait_for_blink_task_stop(TaskHandle_t task) {
     }
 
     return ESP_ERR_TIMEOUT;
-}
-
-esp_err_t status_led_blink_start(uint32_t on_ms, uint32_t off_ms,
-                                 uint8_t led_gpio) {
-    // Stop any other blinking first
-    esp_err_t err = status_led_blink_stop();
-    if (err != ESP_OK) {
-        return err;
-    }
-
-    // Set to on already and start task immediately after
-    s_blink.output = BLINK_OUTPUT_GPIO;
-    s_blink.gpio = led_gpio;
-    s_blink.on_ms = on_ms;
-    s_blink.off_ms = off_ms;
-    s_blink.state = 1;
-    s_blink.running = true;
-
-    err = blink_apply_state();
-    if (err != ESP_OK) {
-        s_blink.running = false;
-        s_blink.output = BLINK_OUTPUT_NONE;
-        return err;
-    }
-
-    // Start task with low priority
-    BaseType_t ok = xTaskCreate(blink_task, "status_led_blink", 4096, NULL, 5,
-                                &s_blink_task);
-    if (ok != pdPASS) {
-        blink_apply_off();
-        s_blink.running = false;
-        s_blink.output = BLINK_OUTPUT_NONE;
-        return ESP_ERR_NO_MEM;
-    }
-
-    return ESP_OK;
 }
 
 static esp_err_t status_led_blink_start_ws2812b(uint32_t on_ms, uint32_t off_ms,
@@ -534,11 +485,6 @@ esp_err_t status_led_set_state(status_state_t state) {
 esp_err_t configure_led() { return ESP_OK; }
 esp_err_t status_led_enable_log_feedback(void) { return ESP_OK; }
 esp_err_t status_led_set_state(status_state_t state) { return ESP_OK; }
-esp_err_t status_led_blink_start(uint32_t on_ms, uint32_t off_ms,
-                                 uint8_t led_gpio) {
-    return ESP_OK;
-}
-esp_err_t status_led_blink_stop(void) { return ESP_OK; }
 
 #endif
 
