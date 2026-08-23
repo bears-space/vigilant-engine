@@ -25,6 +25,11 @@ esp_err_t status_led_enable_log_feedback(void);
 
 esp_err_t status_led_set_state(status_state_t state);
 
+// optional nice-to-have helpers
+esp_err_t status_led_blink_start(uint32_t on_ms, uint32_t off_ms,
+                                 uint8_t led_gpio);
+esp_err_t status_led_blink_stop(void);
+
 #ifdef __cplusplus
 }
 #endif
