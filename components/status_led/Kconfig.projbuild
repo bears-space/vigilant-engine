@@ -44,4 +44,19 @@ menu "Vigilant Engine Configuration: LEDs"
         help
             Set the duration of the pulse for log error events in milliseconds.
 
+    config VE_LED_COLOR_INFO
+        hex "LED color INFO (hex)"
+        range 0x000000 0xFFFFFF
+        default 0x40F284
+
+    config VE_LED_COLOR_WARNING
+        hex "LED color WARNING (hex)"
+        range 0x000000 0xFFFFFF
+        default 0xFFFF00
+
+    config VE_LED_COLOR_ERROR
+        hex "LED color ERROR (hex)"
+        range 0x000000 0xFFFFFF
+        default 0xFF0000
+
 endmenu

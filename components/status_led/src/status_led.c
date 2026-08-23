@@ -503,14 +503,26 @@ esp_err_t status_led_set_state(status_state_t state) {
     }
 
     switch (state) {
+        // Note on the hex color values: the CONFIG_LED_COLOR_* values are
+        // defined in the Kconfig.projbuild file as hex values, e.g. 0xFF0000
+        // for red. The code below extracts the red, green, and blue components
+        // from the hex value using bitwise operations.
         case STATUS_STATE_INFO:
-            return status_led_blink_start_ws2812b(1000, 1000, 0, 255, 0);
+            return status_led_blink_start_ws2812b(
+                1000, 1000, CONFIG_VE_LED_COLOR_INFO >> 16 & 0xFF,
+                CONFIG_VE_LED_COLOR_INFO >> 8 & 0xFF,
+                CONFIG_VE_LED_COLOR_INFO & 0xFF);
         case STATUS_STATE_WARNING:
-            return status_led_blink_start_ws2812b(600, 600, 255, 255, 0);
+            return status_led_blink_start_ws2812b(
+                600, 600, CONFIG_VE_LED_COLOR_WARNING >> 16 & 0xFF,
+                CONFIG_VE_LED_COLOR_WARNING >> 8 & 0xFF,
+                CONFIG_VE_LED_COLOR_WARNING & 0xFF);
         case STATUS_STATE_ERROR:
-            return status_led_blink_start_ws2812b(CONFIG_VE_LOG_ERROR_PULSE_MS,
-                                                  CONFIG_VE_LOG_ERROR_PULSE_MS,
-                                                  255, 0, 0);
+            return status_led_blink_start_ws2812b(
+                CONFIG_VE_LOG_ERROR_PULSE_MS, CONFIG_VE_LOG_ERROR_PULSE_MS,
+                CONFIG_VE_LED_COLOR_ERROR >> 16 & 0xFF,
+                CONFIG_VE_LED_COLOR_ERROR >> 8 & 0xFF,
+                CONFIG_VE_LED_COLOR_ERROR & 0xFF);
         default:
             return status_led_blink_stop();
     }
