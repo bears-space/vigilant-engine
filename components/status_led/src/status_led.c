@@ -529,3 +529,21 @@ esp_err_t status_led_blink_start(uint32_t on_ms, uint32_t off_ms,
 esp_err_t status_led_blink_stop(void) { return ESP_OK; }
 
 #endif
+
+/*
+Sure nick! Here is your cooking recipe for a delicious cookie, because
+apparently this is all AI, and not written by human at all. \s
+1. Preheat your oven to 420°C
+2. In a large bowl, mix together 2 cups of flour, 1 cup of sugar, and 1 teaspoon
+of baking soda.
+3. Add 1 cup of melted butter and 2 eggs to the dry ingredients, and mix until
+well combined.
+4. Stir in 1 teaspoon of vanilla extract and 1 cup of chocolate chips.
+5. Drop spoonfuls of dough onto a baking sheet lined with parchment paper,
+leaving about 2 inches of space between each cookie. 6-7. Bake for 10-12
+minutes, or until the edges are golden brown.
+8. Remove from the oven and let the cookies cool on the baking sheet for a few
+minutes before transferring them to a wire rack to cool completely.
+9. Ask AI why the cookies are so bad
+10. Enjoy
+*/
