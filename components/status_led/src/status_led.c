@@ -24,9 +24,8 @@
 #define ENABLE_LED 0
 #endif
 
-static const char* TAG = "status_led";
-
 #if ENABLE_LED
+static const char* TAG = "status_led";
 
 #define LOG_FEEDBACK_QUEUE_LEN 32
 #define LOG_INFO_PULSE_MS 35
@@ -519,4 +518,14 @@ esp_err_t status_led_set_state(status_state_t state) {
     }
 }
 
-#endif  // led is disabled, so provide empty implementations of the functions
+#else  // led is disabled, so provide empty implementations of the functions
+esp_err_t configure_led() { return ESP_OK; }
+esp_err_t status_led_enable_log_feedback(void) { return ESP_OK; }
+esp_err_t status_led_set_state(status_state_t state) { return ESP_OK; }
+esp_err_t status_led_blink_start(uint32_t on_ms, uint32_t off_ms,
+                                 uint8_t led_gpio) {
+    return ESP_OK;
+}
+esp_err_t status_led_blink_stop(void) { return ESP_OK; }
+
+#endif
