@@ -291,7 +291,7 @@ esp_err_t status_led_enable_log_feedback(void) {
     return ESP_OK;
 }
 
-esp_err_t configure_led() {
+esp_err_t init_led() {
     esp_err_t mutex_err = status_led_ensure_mutex();
     if (mutex_err != ESP_OK) {
         return mutex_err;
@@ -475,7 +475,7 @@ esp_err_t status_led_set_state(status_state_t state) {
 }
 
 #else  // led is disabled, so provide empty implementations of the functions
-esp_err_t configure_led() { return ESP_OK; }
+esp_err_t init_led() { return ESP_OK; }
 esp_err_t status_led_enable_log_feedback(void) { return ESP_OK; }
 esp_err_t status_led_set_state(status_state_t state) { return ESP_OK; }
 
