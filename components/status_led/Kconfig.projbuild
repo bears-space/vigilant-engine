@@ -48,15 +48,21 @@ menu "Vigilant Engine Configuration: LEDs"
         hex "LED color INFO (hex)"
         range 0x000000 0xFFFFFF
         default 0x40F284
+        help
+            RGB color in hex format used to show INFO logs.
 
     config VE_LED_COLOR_WARNING
         hex "LED color WARNING (hex)"
         range 0x000000 0xFFFFFF
         default 0xFFFF00
+        help
+            RGB color in hex format used to show WARN logs.
 
     config VE_LED_COLOR_ERROR
         hex "LED color ERROR (hex)"
         range 0x000000 0xFFFFFF
         default 0xFF0000
+        help
+            RGB color in hex format used to show ERROR logs.
 
 endmenu
