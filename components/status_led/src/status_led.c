@@ -64,7 +64,9 @@ static QueueHandle_t s_log_feedback_queue = NULL;
 static vprintf_like_t s_orig_vprintf = NULL;
 static bool s_log_hook_installed = false;
 static bool s_log_error_blink_started = false;
-static volatile bool s_log_error_latched = false;
+static volatile bool s_log_error_latched =
+    false;  // flag for whether an error has been logged and the LED should stay
+            // in error state
 
 static esp_err_t status_led_ensure_mutex(void) {
     if (s_led_mutex) {
