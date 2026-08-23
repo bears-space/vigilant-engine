@@ -15,8 +15,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
-#include "status_led.h"
 #include "sdkconfig.h"
+#include "status_led.h"
 
 static const char* TAG = "ve_recovery";
 
@@ -483,9 +483,9 @@ void app_main(void) {
 
     */
 
-    esp_err_t led_err = configure_led();
+    esp_err_t led_err = init_led();
     if (led_err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to configure status LED: %s",
+        ESP_LOGE(TAG, "Failed to init status LED: %s",
                  esp_err_to_name(led_err));
     }
 

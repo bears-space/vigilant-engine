@@ -118,10 +118,6 @@ static esp_err_t ws2812b_status_led_set_rgb(uint8_t r, uint8_t g, uint8_t b) {
     return err;
 }
 
-static esp_err_t status_led_blink_start_ws2812b(uint32_t on_ms, uint32_t off_ms,
-                                                uint8_t red, uint8_t green,
-                                                uint8_t blue);
-
 static esp_err_t status_led_set_rgb_once(uint8_t red, uint8_t green,
                                          uint8_t blue) {
     return ws2812b_status_led_set_rgb(red, green, blue);
@@ -392,9 +388,9 @@ static esp_err_t status_led_wait_for_blink_task_stop(TaskHandle_t task) {
     return ESP_ERR_TIMEOUT;
 }
 
-static esp_err_t status_led_blink_start_ws2812b(uint32_t on_ms, uint32_t off_ms,
-                                                uint8_t red, uint8_t green,
-                                                uint8_t blue) {
+static esp_err_t status_led_blink_start(uint32_t on_ms, uint32_t off_ms,
+                                        uint8_t red, uint8_t green,
+                                        uint8_t blue) {
     esp_err_t err = status_led_blink_stop();
     if (err != ESP_OK) {
         return err;
@@ -454,17 +450,17 @@ esp_err_t status_led_set_state(status_state_t state) {
         // for red. The code below extracts the red, green, and blue components
         // from the hex value using bitwise operations.
         case STATUS_STATE_INFO:
-            return status_led_blink_start_ws2812b(
-                1000, 1000, CONFIG_VE_LED_COLOR_INFO >> 16 & 0xFF,
-                CONFIG_VE_LED_COLOR_INFO >> 8 & 0xFF,
-                CONFIG_VE_LED_COLOR_INFO & 0xFF);
+            return status_led_blink_start(1000, 1000,
+                                          CONFIG_VE_LED_COLOR_INFO >> 16 & 0xFF,
+                                          CONFIG_VE_LED_COLOR_INFO >> 8 & 0xFF,
+                                          CONFIG_VE_LED_COLOR_INFO & 0xFF);
         case STATUS_STATE_WARNING:
-            return status_led_blink_start_ws2812b(
+            return status_led_blink_start(
                 600, 600, CONFIG_VE_LED_COLOR_WARNING >> 16 & 0xFF,
                 CONFIG_VE_LED_COLOR_WARNING >> 8 & 0xFF,
                 CONFIG_VE_LED_COLOR_WARNING & 0xFF);
         case STATUS_STATE_ERROR:
-            return status_led_blink_start_ws2812b(
+            return status_led_blink_start(
                 CONFIG_VE_LOG_ERROR_PULSE_MS, CONFIG_VE_LOG_ERROR_PULSE_MS,
                 CONFIG_VE_LED_COLOR_ERROR >> 16 & 0xFF,
                 CONFIG_VE_LED_COLOR_ERROR >> 8 & 0xFF,
