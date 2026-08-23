@@ -14,12 +14,6 @@
 #include "led_strip_rmt.h"  // this is ws2812b specific
 #include "sdkconfig.h"
 
-#if defined(CONFIG_VE_INVERT_STATUS_LED)
-#define INVERT_LED 1
-#else
-#define INVERT_LED 0
-#endif
-
 #if defined(CONFIG_VE_ENABLE_STATUS_LED)
 #define ENABLE_LED 1
 #else
@@ -49,9 +43,6 @@ RGB mode:
 typedef enum {
     BLINK_OUTPUT_NONE = 0,
     BLINK_OUTPUT_GPIO,
-#if defined(CONFIG_VE_STATUS_LED_MODE_RGB)
-    BLINK_OUTPUT_RGB,
-#endif
 #if defined(CONFIG_VE_LED_TYPE_WS2812B)
     BLINK_OUTPUT_WS2812B,
 #endif
@@ -169,12 +160,6 @@ static esp_err_t status_led_blink_start_ws2812b(uint32_t on_ms, uint32_t off_ms,
                                                 uint8_t blue);
 #endif
 
-#if defined(CONFIG_VE_STATUS_LED_MODE_RGB)
-static esp_err_t status_led_blink_start_rgb(uint32_t on_ms, uint32_t off_ms,
-                                            uint8_t red, uint8_t green,
-                                            uint8_t blue);
-#endif
-
 #if ENABLE_LED
 static esp_err_t status_led_set_rgb_once(uint8_t red, uint8_t green,
                                          uint8_t blue) {
@@ -182,39 +167,14 @@ static esp_err_t status_led_set_rgb_once(uint8_t red, uint8_t green,
     return ESP_OK;
 #elif defined(CONFIG_VE_LED_TYPE_WS2812B)
     return ws2812b_status_led_set_rgb(red, green, blue);
-#elif defined(CONFIG_VE_STATUS_LED_MODE_RGB)
-    esp_err_t err = status_led_lock();
-    if (err != ESP_OK) {
-        return err;
-    }
-
-    gpio_set_level(CONFIG_VE_STATUS_LED_GPIO_RED, red ? led_on : led_off);
-    gpio_set_level(CONFIG_VE_STATUS_LED_GPIO_GREEN, green ? led_on : led_off);
-    gpio_set_level(CONFIG_VE_STATUS_LED_GPIO_BLUE, blue ? led_on : led_off);
-    status_led_unlock();
-    return ESP_OK;
-#elif defined(CONFIG_VE_STATUS_LED_MODE_BLINK)
-    esp_err_t err = status_led_lock();
-    if (err != ESP_OK) {
-        return err;
-    }
-
-    gpio_set_level(CONFIG_VE_STATUS_LED_GPIO_BLINK,
-                   (red || green || blue) ? led_on : led_off);
-    status_led_unlock();
-    return ESP_OK;
-#else
-    return ESP_OK;
 #endif
 }
 
 static esp_err_t status_led_off_once(void) {
 #if (!ENABLE_LED)
     return ESP_OK;
-#elif defined(CONFIG_VE_LED_TYPE_WS2812B)
+#elif defined(CONFIG_VE_LED_TYPE_WS2812B)  // elif remains for future LED types
     return ws2812b_status_led_off();
-#else
-    return status_led_set_rgb_once(0, 0, 0);
 #endif
 }
 
@@ -391,12 +351,6 @@ esp_err_t configure_led() {
     if (!ENABLE_LED) {
         return ESP_OK;
     }
-
-    // Change definitions according to VE_INVERT_STATUS_LED
-    if (INVERT_LED) {
-        led_on = 0;
-        led_off = 1;
-    }
 #if ENABLE_LED
     esp_err_t mutex_err = status_led_ensure_mutex();
     if (mutex_err != ESP_OK) {
@@ -414,10 +368,7 @@ esp_err_t configure_led() {
         .strip_gpio_num = CONFIG_VE_STATUS_WS2812B_PIN,
         .max_leds = 1,
         .led_model = LED_MODEL_WS2812,
-        .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB,
-        .flags = {
-            .invert_out = INVERT_LED,
-        }};
+        .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB};
 
     led_strip_rmt_config_t rmt_cfg = {.clk_src = RMT_CLK_SRC_DEFAULT,
                                       .resolution_hz = (10 * 1000 * 1000),
@@ -440,25 +391,6 @@ esp_err_t configure_led() {
         return status_led_enable_log_feedback();
     }
     return off_err;
-#elif defined( \
-    CONFIG_VE_LED_TYPE_GENERIC)  // Applies initialization for both RGB and
-                                 // BLINK modes, as they both use GPIO output
-#if defined(CONFIG_VE_STATUS_LED_MODE_RGB)
-    gpio_reset_pin(CONFIG_VE_STATUS_LED_GPIO_RED);
-    gpio_reset_pin(CONFIG_VE_STATUS_LED_GPIO_GREEN);
-    gpio_reset_pin(CONFIG_VE_STATUS_LED_GPIO_BLUE);
-
-    gpio_set_direction(CONFIG_VE_STATUS_LED_GPIO_RED, GPIO_MODE_OUTPUT);
-    gpio_set_direction(CONFIG_VE_STATUS_LED_GPIO_GREEN, GPIO_MODE_OUTPUT);
-    gpio_set_direction(CONFIG_VE_STATUS_LED_GPIO_BLUE, GPIO_MODE_OUTPUT);
-
-#elif defined(CONFIG_VE_STATUS_LED_MODE_BLINK)
-    gpio_reset_pin(CONFIG_VE_STATUS_LED_GPIO_BLINK);
-    gpio_set_direction(CONFIG_VE_STATUS_LED_GPIO_BLINK, GPIO_MODE_OUTPUT);
-#endif
-#else
-#error "No valid VE_LED_TYPE selected"
-    ESP_LOGI(TAG, "NO VALID VE_LED_TYPE SELECTED, NOT INITIALIZING STATUS LED");
 #endif
     ESP_LOGI(TAG, "Done initializing status LED");
 #else
@@ -478,15 +410,8 @@ static esp_err_t blink_apply_state(void) {
             status_led_unlock();
             return ESP_OK;
         }
-#if defined(CONFIG_VE_STATUS_LED_MODE_RGB)
-        case BLINK_OUTPUT_RGB:
-            if (s_blink.state) {
-                return status_led_set_rgb_once(s_blink.red, s_blink.green,
-                                               s_blink.blue);
-            }
-            return status_led_off_once();
-#endif
-#if defined(CONFIG_VE_LED_TYPE_WS2812B)
+#if defined(CONFIG_VE_LED_TYPE_WS2812B)  // again, if remains for future LED
+                                         // types
         case BLINK_OUTPUT_WS2812B:
             if (s_blink.state) {
                 return ws2812b_status_led_set_rgb(s_blink.red, s_blink.green,
@@ -621,44 +546,6 @@ static esp_err_t status_led_blink_start_ws2812b(uint32_t on_ms, uint32_t off_ms,
 }
 #endif
 
-#if defined(CONFIG_VE_STATUS_LED_MODE_RGB)
-static esp_err_t status_led_blink_start_rgb(uint32_t on_ms, uint32_t off_ms,
-                                            uint8_t red, uint8_t green,
-                                            uint8_t blue) {
-    esp_err_t err = status_led_blink_stop();
-    if (err != ESP_OK) {
-        return err;
-    }
-
-    s_blink.output = BLINK_OUTPUT_RGB;
-    s_blink.on_ms = on_ms;
-    s_blink.off_ms = off_ms;
-    s_blink.state = 1;
-    s_blink.running = true;
-    s_blink.red = red;
-    s_blink.green = green;
-    s_blink.blue = blue;
-
-    err = blink_apply_state();
-    if (err != ESP_OK) {
-        s_blink.running = false;
-        s_blink.output = BLINK_OUTPUT_NONE;
-        return err;
-    }
-
-    BaseType_t ok = xTaskCreate(blink_task, "status_led_blink", 4096, NULL, 5,
-                                &s_blink_task);
-    if (ok != pdPASS) {
-        blink_apply_off();
-        s_blink.running = false;
-        s_blink.output = BLINK_OUTPUT_NONE;
-        return ESP_ERR_NO_MEM;
-    }
-
-    return ESP_OK;
-}
-#endif
-
 esp_err_t status_led_blink_stop(void) {
     // Terminate task and set the active LED output to off
     s_blink.running = false;
@@ -686,20 +573,8 @@ esp_err_t status_led_set_state(status_state_t state) {
     }
 #endif
 
-    // RGB mode
-#if defined(CONFIG_VE_STATUS_LED_MODE_RGB)
-    switch (state) {
-        case STATUS_STATE_INFO:
-            return status_led_blink_start_rgb(1000, 1000, 0, 255, 0);
-        case STATUS_STATE_WARNING:
-            return status_led_blink_start_rgb(600, 600, 255, 255, 0);
-        case STATUS_STATE_ERROR:
-            return status_led_blink_start_rgb(LOG_ERROR_BLINK_MS,
-                                              LOG_ERROR_BLINK_MS, 255, 0, 0);
-        default:
-            return status_led_blink_stop();
-    }
-#elif defined(CONFIG_VE_LED_TYPE_WS2812B)  // WS2812B RGB mode
+#if defined(CONFIG_VE_LED_TYPE_WS2812B)  // again, if remains for future LED
+                                         // types
     switch (state) {
         case STATUS_STATE_INFO:
             return status_led_blink_start_ws2812b(1000, 1000, 0, 255, 0);
@@ -711,22 +586,6 @@ esp_err_t status_led_set_state(status_state_t state) {
         default:
             return status_led_blink_stop();
     }
-#elif defined(CONFIG_VE_STATUS_LED_MODE_BLINK)
-    // Blink mode
-    switch (state) {
-        case STATUS_STATE_INFO:
-            return status_led_blink_start(2000, 2000,
-                                          CONFIG_VE_STATUS_LED_GPIO_BLINK);
-        case STATUS_STATE_WARNING:
-            return status_led_blink_start(700, 700,
-                                          CONFIG_VE_STATUS_LED_GPIO_BLINK);
-        case STATUS_STATE_ERROR:
-            return status_led_blink_start(100, 100,
-                                          CONFIG_VE_STATUS_LED_GPIO_BLINK);
-        default:
-            return status_led_blink_stop();
-    }
-
 #else
     return status_led_blink_stop();
 #endif

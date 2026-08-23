@@ -16,8 +16,6 @@ menu "Vigilant Engine Configuration: LEDs"
         config VE_LED_TYPE_WS2812B
             bool "WS2812B LED"
 
-        config VE_LED_TYPE_GENERIC
-            bool "Generic LED"
     endchoice
 
     config VE_STATUS_WS2812B_PIN
@@ -25,48 +23,4 @@ menu "Vigilant Engine Configuration: LEDs"
         default 8
         depends on VE_LED_TYPE_WS2812B
 
-    config VE_INVERT_STATUS_LED
-        bool "Invert Status LED GPIO"
-        default n
-        help
-            Enable this option to invert the signals sent to the status LED. On some boards LOW means the LED turns on.
-            On other boards LOW might turn them off.
-
-    choice VE_STATUS_LED_MODE
-        prompt "LED Operation Mode"
-        default VE_STATUS_LED_MODE_RGB
-        depends on VE_LED_TYPE_GENERIC
-        help
-            Select how the LED conveys status information.
-
-        config VE_STATUS_LED_MODE_RGB
-            bool "RGB (Color-based)"
-
-        config VE_STATUS_LED_MODE_BLINK
-            bool "BLINK (Frequency-based)"
-    endchoice
-
-    config VE_STATUS_LED_GPIO_RED
-        int "Red LED GPIO"
-        range 0 64
-        default 46
-        depends on VE_STATUS_LED_MODE_RGB
-
-    config VE_STATUS_LED_GPIO_GREEN
-        int "Green LED GPIO"
-        range 0 64
-        default 0
-        depends on VE_STATUS_LED_MODE_RGB
-
-    config VE_STATUS_LED_GPIO_BLUE
-        int "Blue LED GPIO"
-        range 0 64
-        default 45
-        depends on VE_STATUS_LED_MODE_RGB
-
-    config VE_STATUS_LED_GPIO_BLINK
-        int "Blink LED GPIO"
-        range 0 64
-        default 48
-        depends on VE_STATUS_LED_MODE_BLINK
 endmenu
