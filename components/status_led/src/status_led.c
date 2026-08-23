@@ -6,6 +6,7 @@
 
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "esp_log_level.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
@@ -48,13 +49,6 @@ static struct {
 
 static TaskHandle_t s_blink_task = NULL;
 static SemaphoreHandle_t s_led_mutex = NULL;
-
-typedef enum {
-    STATUS_LED_LOG_EVENT_NONE = 0,
-    STATUS_LED_LOG_EVENT_INFO,
-    STATUS_LED_LOG_EVENT_WARN,
-    STATUS_LED_LOG_EVENT_ERROR,
-} status_led_log_event_t;
 
 static TaskHandle_t s_log_feedback_task = NULL;
 static QueueHandle_t s_log_feedback_queue = NULL;
@@ -154,10 +148,9 @@ static const char* skip_ansi_sequence(const char* fmt) {
     return fmt;
 }
 
-static status_led_log_event_t status_led_log_event_from_format(
-    const char* fmt) {
+static esp_log_level_t status_led_log_event_from_format(const char* fmt) {
     if (!fmt) {
-        return STATUS_LED_LOG_EVENT_NONE;
+        return ESP_LOG_NONE;
     }
 
     while (*fmt) {
@@ -175,24 +168,24 @@ static status_led_log_event_t status_led_log_event_from_format(
         char next = fmt[1];
         if ((next == ' ' || next == '(' || next == '\0')) {
             if (level == 'I') {
-                return STATUS_LED_LOG_EVENT_INFO;
+                return ESP_LOG_INFO;
             }
             if (level == 'W') {
-                return STATUS_LED_LOG_EVENT_WARN;
+                return ESP_LOG_WARN;
             }
             if (level == 'E') {
-                return STATUS_LED_LOG_EVENT_ERROR;
+                return ESP_LOG_ERROR;
             }
         }
 
-        return STATUS_LED_LOG_EVENT_NONE;
+        return ESP_LOG_NONE;
     }
 
-    return STATUS_LED_LOG_EVENT_NONE;
+    return ESP_LOG_NONE;
 }
 
-static void status_led_queue_log_event(status_led_log_event_t event) {
-    if (event == STATUS_LED_LOG_EVENT_NONE || !s_log_feedback_queue) {
+static void status_led_queue_log_event(esp_log_level_t event) {
+    if (event == ESP_LOG_NONE || !s_log_feedback_queue) {
         return;
     }
 
@@ -200,7 +193,7 @@ static void status_led_queue_log_event(status_led_log_event_t event) {
         return;
     }
 
-    if (event == STATUS_LED_LOG_EVENT_ERROR) {
+    if (event == ESP_LOG_ERROR) {
         s_log_error_latched = true;
     }
 
@@ -248,22 +241,22 @@ static void status_led_start_log_error_blink(void) {
 static void status_led_log_feedback_task(void* arg) {
     (void)arg;
 
-    status_led_log_event_t event;
+    esp_log_level_t event;
     while (true) {
         if (xQueueReceive(s_log_feedback_queue, &event, portMAX_DELAY) !=
             pdTRUE) {
             continue;
         }
 
-        if (event == STATUS_LED_LOG_EVENT_ERROR || s_log_error_latched) {
+        if (event == ESP_LOG_ERROR || s_log_error_latched) {
             s_log_error_latched = true;
             status_led_start_log_error_blink();
             continue;
         }
 
-        if (event == STATUS_LED_LOG_EVENT_WARN) {
+        if (event == ESP_LOG_WARN) {
             status_led_pulse(255, 255, 0, CONFIG_VE_LOG_WARN_PULSE_MS);
-        } else if (event == STATUS_LED_LOG_EVENT_INFO) {
+        } else if (event == ESP_LOG_INFO) {
             status_led_pulse(0, 255, 0, CONFIG_VE_LOG_INFO_PULSE_MS);
         }
     }
@@ -275,8 +268,8 @@ esp_err_t status_led_enable_log_feedback(void) {
     }
 
     if (!s_log_feedback_queue) {
-        s_log_feedback_queue = xQueueCreate(LOG_FEEDBACK_QUEUE_LEN,
-                                            sizeof(status_led_log_event_t));
+        s_log_feedback_queue =
+            xQueueCreate(LOG_FEEDBACK_QUEUE_LEN, sizeof(esp_log_level_t));
         if (!s_log_feedback_queue) {
             return ESP_ERR_NO_MEM;
         }
