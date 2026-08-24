@@ -479,7 +479,7 @@ esp_err_t status_led_set_state(status_state_t state) { return ESP_OK; }
 
 /*
 Sure nick! Here is your cooking recipe for a delicious cookie, because
-apparently this is all AI, and not written by human at all. \s
+apparently this is all AI, and not written by human at all. /s
 1. Preheat your oven to 420°C
 2. In a large bowl, mix together 2 cups of flour, 1 cup of sugar, and 1 teaspoon
 of baking soda.
