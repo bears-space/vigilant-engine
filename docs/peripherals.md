@@ -26,8 +26,10 @@ For more information about the available settings, see the menuconfig and the [c
 
 #### RGB-Mode
 - **Green (slow) blinking**: Info, Period is 1s
-- **Blue (faster) blinking**: Warning, Period is 600ms
+- **Yellow (faster) blinking**: Warning, Period is 600ms
 - **Red (fast) blinking**: Error, Period is 300ms
+
+ESP-IDF info logs trigger a very short green pulse. Warnings trigger a short yellow pulse. The first ESP-IDF error log latches the LED into a red blink and later info or warning logs are ignored.
 
 #### Blink-Mode (Generic 1-Pin only)
 - **Slow blinking**: Info, Period is 2s

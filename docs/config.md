@@ -28,7 +28,7 @@ ___
 #### `VE_INVERT_STATUS_LED`, **bool**
 Depending on the board and LED, some activate on LOW and some activate on HIGH. To invert and turn the LED on for LOW, set this option to true.
 
-**default**: `1`
+**default**: `0`
 ___
 #### `VE_ENABLE_STATUS_LED`, **bool**
 Enable status LED, enable this option to use the status LED functionality in Vigilant Engine. The status LED provides visual feedback on the system's status and operations, and can optionally be used for visual output.
@@ -39,13 +39,14 @@ ___
 Select the status LED hardware type used by Vigilant Engine.
 ###### Options:
 - `VE_LED_TYPE_WS2812B` Uses a single WS2812B addressable RGB LED.
-- `VE_LED_TYPE_NONE` Uses a generic GPIO-driven LED setup.
+- `VE_LED_TYPE_GENERIC` Uses a generic GPIO-driven LED setup.
 
 This setting is only available when `VE_ENABLE_STATUS_LED` is enabled.
 
+**default**: `VE_LED_TYPE_WS2812B`
 ___
 #### `VE_STATUS_LED_MODE`, **enum**
-Choose how the status LED conveys information depending on your board or preference. This setting applies when `VE_LED_TYPE` is set to `VE_LED_TYPE_NONE`.
+Choose how the status LED conveys information depending on your board or preference. This setting applies when `VE_LED_TYPE` is set to `VE_LED_TYPE_GENERIC`.
 ###### Options:
 - `VE_STATUS_LED_MODE_RGB` Shows status information by changing colors and frequency. Suitable for a basic RGB led consisting of three separate GPIO pins.
 - `VE_STATUS_LED_MODE_BLINK` Varies frequency of blinking to match current status. Suitable for a basic led consisting of one GPIO pin.
@@ -58,22 +59,22 @@ The GPIO pin used as the data output for the WS2812B status LED. This setting ap
 **default**: `8`
 ___
 #### `VE_STATUS_LED_GPIO_RED`, **int**
-The GPIO pin number for the red status LED in `RGB` mode. This setting applies when `VE_LED_TYPE` is set to `VE_LED_TYPE_NONE` and `VE_STATUS_LED_MODE` is set to `VE_STATUS_LED_MODE_RGB`.
+The GPIO pin number for the red status LED in `RGB` mode. This setting applies when `VE_LED_TYPE` is set to `VE_LED_TYPE_GENERIC` and `VE_STATUS_LED_MODE` is set to `VE_STATUS_LED_MODE_RGB`.
 
 **default**: `46`
 ___
 #### `VE_STATUS_LED_GPIO_GREEN`, **int**
-The GPIO pin number for the green status LED in `RGB` mode. This setting applies when `VE_LED_TYPE` is set to `VE_LED_TYPE_NONE` and `VE_STATUS_LED_MODE` is set to `VE_STATUS_LED_MODE_RGB`.
+The GPIO pin number for the green status LED in `RGB` mode. This setting applies when `VE_LED_TYPE` is set to `VE_LED_TYPE_GENERIC` and `VE_STATUS_LED_MODE` is set to `VE_STATUS_LED_MODE_RGB`.
 
 **default**: `0`
 ___
 #### `VE_STATUS_LED_GPIO_BLUE`, **int**
-The GPIO pin number for the blue status LED in `RGB` mode. This setting applies when `VE_LED_TYPE` is set to `VE_LED_TYPE_NONE` and `VE_STATUS_LED_MODE` is set to `VE_STATUS_LED_MODE_RGB`.
+The GPIO pin number for the blue status LED in `RGB` mode. This setting applies when `VE_LED_TYPE` is set to `VE_LED_TYPE_GENERIC` and `VE_STATUS_LED_MODE` is set to `VE_STATUS_LED_MODE_RGB`.
 
 **default**: `45`
 ___
 #### `VE_STATUS_LED_GPIO_BLINK`, **int**
-The GPIO pin number for the single status LED in `BLINK` mode. This setting applies when `VE_LED_TYPE` is set to `VE_LED_TYPE_NONE` and `VE_STATUS_LED_MODE` is set to `VE_STATUS_LED_MODE_BLINK`.
+The GPIO pin number for the single status LED in `BLINK` mode. This setting applies when `VE_LED_TYPE` is set to `VE_LED_TYPE_GENERIC` and `VE_STATUS_LED_MODE` is set to `VE_STATUS_LED_MODE_BLINK`.
 
 **default**: `48`
 ___
