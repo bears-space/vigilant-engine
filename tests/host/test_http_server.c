@@ -69,9 +69,17 @@ static void test_uri_decode(void) {
     err = http_server_test_uri_decode(dest, NULL, 100);
     TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, err);
 
-    err = http_server_test_uri_decode(dest, "%E0%A", 100);
+    err = http_server_test_uri_decode(dest, "%", 100);
     TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, err);
 
+    err = http_server_test_uri_decode(dest, "%A", 100);
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, err);
+    
+    err = http_server_test_uri_decode(dest, "%GG", 100);
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, err);
+
+    err = http_server_test_uri_decode(dest, "%E0%A", 100);
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, err);
 }
 
 int main(void) {
