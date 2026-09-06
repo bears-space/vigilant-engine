@@ -47,11 +47,39 @@ static void test_hex_nibble(void) {
     TEST_ASSERT_EQUAL(-1, http_server_test_hex_nibble('-'));
 }
 
+static void test_uri_decode(void) {
+    char dest[100];
+    esp_err_t err;
+
+    err =http_server_test_uri_decode(dest, "Hello%20World%21", 100);
+    TEST_ASSERT_EQUAL_STRING("Hello World!", dest);
+    TEST_ASSERT_EQUAL(ESP_OK, err);
+
+    err = http_server_test_uri_decode(dest, "simple%20test", 100);
+    TEST_ASSERT_EQUAL_STRING("simple test", dest);
+    TEST_ASSERT_EQUAL(ESP_OK, err);
+
+    err = http_server_test_uri_decode(dest, "price%3D%24100%26tax%3D5%25", 100);
+    TEST_ASSERT_EQUAL_STRING("price=$100&tax=5%", dest);
+    TEST_ASSERT_EQUAL(ESP_OK, err);
+
+    err = http_server_test_uri_decode(NULL, "Hello%20World%21", 100);
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, err);
+
+    err = http_server_test_uri_decode(dest, NULL, 100);
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, err);
+
+    err = http_server_test_uri_decode(dest, "%E0%A", 100);
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, err);
+
+}
+
 int main(void) {
     UNITY_BEGIN();
 
     RUN_TEST(test_http_server_init);
     RUN_TEST(test_hex_nibble);
+    RUN_TEST(test_uri_decode);
 
     return UNITY_END();
 }

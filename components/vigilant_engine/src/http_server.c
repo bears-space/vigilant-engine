@@ -50,9 +50,9 @@ static int hex_nibble(char c) {
     return -1;
 }
 
-static void uri_decode(char* dest, const char* src, size_t len) {
+static esp_err_t uri_decode(char* dest, const char* src, size_t len) {
     if (!dest || !src) {
-        return;
+        return ESP_ERR_INVALID_ARG;
     }
 
     size_t rd = 0;
@@ -72,13 +72,14 @@ static void uri_decode(char* dest, const char* src, size_t len) {
     }
 
     dest[wr] = '\0';
+    return ESP_OK;
 }
 
 #ifdef VE_HOST_TEST
 int http_server_test_hex_nibble(char c) { return hex_nibble(c); }
 
-void http_server_test_uri_decode(char* dest, const char* src, size_t len) {
-    uri_decode(dest, src, len);
+esp_err_t http_server_test_uri_decode(char* dest, const char* src, size_t len) {
+    return uri_decode(dest, src, len);
 }
 #endif
 
