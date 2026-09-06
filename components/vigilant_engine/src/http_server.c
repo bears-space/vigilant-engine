@@ -57,15 +57,25 @@ static esp_err_t uri_decode(char* dest, const char* src, size_t len) {
 
     size_t rd = 0;
     size_t wr = 0;
+    dest[0] = '\0';
+
     while (rd < len && src[rd] != '\0') {
-        if (src[rd] == '%' && (rd + 2) < len) {
+        if (src[rd] == '%') {
+            if ((len - rd) < 3 || src[rd + 1] == '\0' || src[rd + 2] == '\0') {
+                dest[wr] = '\0';
+                return ESP_ERR_INVALID_ARG;
+            }
+
             int hi = hex_nibble(src[rd + 1]);
             int lo = hex_nibble(src[rd + 2]);
-            if (hi >= 0 && lo >= 0) {
-                dest[wr++] = (char)((hi << 4) | lo);
-                rd += 3;
-                continue;
+            if (hi < 0 || lo < 0) {
+                dest[wr] = '\0';
+                return ESP_ERR_INVALID_ARG;
             }
+
+            dest[wr++] = (char)((hi << 4) | lo);
+            rd += 3;
+            continue;
         }
 
         dest[wr++] = src[rd++];
