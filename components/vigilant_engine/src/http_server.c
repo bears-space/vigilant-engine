@@ -349,6 +349,7 @@ static const httpd_uri_t i2cinfo_uri = {
 };
 
 esp_err_t http_404_error_handler(httpd_req_t* req, httpd_err_code_t err) {
+    (void)err;
     if (strcmp("/hello", req->uri) == 0) {
         httpd_resp_send_err(req, HTTPD_404_NOT_FOUND,
                             "/hello URI is not available");
@@ -396,6 +397,7 @@ static const httpd_uri_t ctrl = {.uri = "/ctrl",
                                  .user_ctx = NULL};
 
 static void close_socket_with_ws_cleanup(httpd_handle_t hd, int sockfd) {
+    (void)hd;
     websocket_client_closed(sockfd);
     close(sockfd);
 }

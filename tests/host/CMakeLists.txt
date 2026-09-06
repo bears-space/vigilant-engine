@@ -25,29 +25,30 @@ else()
     target_include_directories(unity PUBLIC "${VE_UNITY_SOURCE_DIR}/src")
 endif()
 
-add_executable(test_i2c
-    test_i2c.c
-    fakes/fake_i2c.c
-    ../../components/vigilant_engine/src/i2c.c
+add_executable(test_http_server
+    test_http_server.c
+    fakes/fake_http_server.c
+    ../../components/vigilant_engine/src/http_server.c
 )
-target_include_directories(test_i2c PRIVATE
+target_include_directories(test_http_server PRIVATE
     fakes
     ../../components/vigilant_engine/include
 )
-target_link_libraries(test_i2c PRIVATE unity)
+target_link_libraries(test_http_server PRIVATE unity)
+target_compile_definitions(test_http_server PRIVATE _POSIX_C_SOURCE=200809L)
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(test_i2c PRIVATE -Wall -Wextra -Werror)
+    target_compile_options(test_http_server PRIVATE -Wall -Wextra -Werror)
 endif()
 if(VE_TEST_SANITIZERS)
     if(NOT CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
         message(FATAL_ERROR "VE_TEST_SANITIZERS requires GCC or Clang")
     endif()
-    foreach(test_target IN ITEMS test_i2c unity)
+    foreach(test_target IN ITEMS test_http_server unity)
         target_compile_options(${test_target} PRIVATE
             -fsanitize=address,undefined -fno-omit-frame-pointer)
     endforeach()
-    target_link_options(test_i2c PRIVATE -fsanitize=address,undefined)
+    target_link_options(test_http_server PRIVATE -fsanitize=address,undefined)
 endif()
 
-add_test(NAME vigilant_engine.i2c COMMAND test_i2c)
-set_tests_properties(vigilant_engine.i2c PROPERTIES TIMEOUT 10)
+add_test(NAME vigilant_engine.http_server COMMAND test_http_server)
+set_tests_properties(vigilant_engine.http_server PROPERTIES TIMEOUT 10)
