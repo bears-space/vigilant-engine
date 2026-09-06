@@ -1,5 +1,9 @@
 #include "http_server.h"
 
+#ifdef VE_HOST_TEST
+#include "http_server_test_hooks.h"
+#endif
+
 #include <esp_system.h>
 #include <inttypes.h>
 #include <stdlib.h>
@@ -46,29 +50,48 @@ static int hex_nibble(char c) {
     return -1;
 }
 
-static void uri_decode(char* dest, const char* src, size_t len) {
+static esp_err_t uri_decode(char* dest, const char* src, size_t len) {
     if (!dest || !src) {
-        return;
+        return ESP_ERR_INVALID_ARG;
     }
 
     size_t rd = 0;
     size_t wr = 0;
+    dest[0] = '\0';
+
     while (rd < len && src[rd] != '\0') {
-        if (src[rd] == '%' && (rd + 2) < len) {
+        if (src[rd] == '%') {
+            if ((len - rd) < 3 || src[rd + 1] == '\0' || src[rd + 2] == '\0') {
+                dest[wr] = '\0';
+                return ESP_ERR_INVALID_ARG;
+            }
+
             int hi = hex_nibble(src[rd + 1]);
             int lo = hex_nibble(src[rd + 2]);
-            if (hi >= 0 && lo >= 0) {
-                dest[wr++] = (char)((hi << 4) | lo);
-                rd += 3;
-                continue;
+            if (hi < 0 || lo < 0) {
+                dest[wr] = '\0';
+                return ESP_ERR_INVALID_ARG;
             }
+
+            dest[wr++] = (char)((hi << 4) | lo);
+            rd += 3;
+            continue;
         }
 
         dest[wr++] = src[rd++];
     }
 
     dest[wr] = '\0';
+    return ESP_OK;
 }
+
+#ifdef VE_HOST_TEST
+int http_server_test_hex_nibble(char c) { return hex_nibble(c); }
+
+esp_err_t http_server_test_uri_decode(char* dest, const char* src, size_t len) {
+    return uri_decode(dest, src, len);
+}
+#endif
 
 static esp_err_t hello_get_handler(httpd_req_t* req) {
     char* buf;
@@ -349,6 +372,7 @@ static const httpd_uri_t i2cinfo_uri = {
 };
 
 esp_err_t http_404_error_handler(httpd_req_t* req, httpd_err_code_t err) {
+    (void)err;
     if (strcmp("/hello", req->uri) == 0) {
         httpd_resp_send_err(req, HTTPD_404_NOT_FOUND,
                             "/hello URI is not available");
@@ -396,6 +420,7 @@ static const httpd_uri_t ctrl = {.uri = "/ctrl",
                                  .user_ctx = NULL};
 
 static void close_socket_with_ws_cleanup(httpd_handle_t hd, int sockfd) {
+    (void)hd;
     websocket_client_closed(sockfd);
     close(sockfd);
 }

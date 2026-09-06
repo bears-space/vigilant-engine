@@ -30,6 +30,19 @@ uv sync
 uv run pre-commit install
 ```
 
+## Unit tests
+
+Run the Unity tests on your computer without ESP-IDF or an ESP32:
+
+```sh
+cmake -S tests/host -B build/tests-host -DCMAKE_BUILD_TYPE=Debug
+cmake --build build/tests-host --parallel
+ctest --test-dir build/tests-host --output-on-failure --no-tests=error
+```
+
+See [Unit testing](docs/unit-testing.md) for dependencies, offline builds,
+sanitizers, coverage, and adding tests.
+
 ## Project Overview
 
 ### Core Features
