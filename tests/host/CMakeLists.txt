@@ -35,7 +35,7 @@ target_include_directories(test_http_server PRIVATE
     ../../components/vigilant_engine/include
 )
 target_link_libraries(test_http_server PRIVATE unity)
-target_compile_definitions(test_http_server PRIVATE _POSIX_C_SOURCE=200809L)
+target_compile_definitions(test_http_server PRIVATE _POSIX_C_SOURCE=200809L VE_HOST_TEST=1)
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(test_http_server PRIVATE -Wall -Wextra -Werror)
 endif()

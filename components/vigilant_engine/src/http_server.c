@@ -1,5 +1,9 @@
 #include "http_server.h"
 
+#ifdef VE_HOST_TEST
+#include "http_server_test_hooks.h"
+#endif
+
 #include <esp_system.h>
 #include <inttypes.h>
 #include <stdlib.h>
@@ -69,6 +73,14 @@ static void uri_decode(char* dest, const char* src, size_t len) {
 
     dest[wr] = '\0';
 }
+
+#ifdef VE_HOST_TEST
+int http_server_test_hex_nibble(char c) { return hex_nibble(c); }
+
+void http_server_test_uri_decode(char* dest, const char* src, size_t len) {
+    uri_decode(dest, src, len);
+}
+#endif
 
 static esp_err_t hello_get_handler(httpd_req_t* req) {
     char* buf;
