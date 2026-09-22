@@ -30,6 +30,12 @@ uv sync
 uv run pre-commit install
 ```
 
+In projects using git submodules, use the following command to update them:
+
+```sh
+git submodule update --init --recursive
+```
+
 ## Project Overview
 
 ### Core Features
