@@ -39,7 +39,8 @@ normalized to LF and trailing whitespace removed. The upstream file hashes and l
 
 ## Application setup
 
-The existing GPIO assignments in `main/main.c` are preserved:
+Configure the GPIO assignments in `idf.py menuconfig` under
+`Component config > TCAN4550 Configuration`. The defaults are:
 
 | Signal | GPIO |
 | --- | ---: |
@@ -59,6 +60,22 @@ ECC-protected RAM, and starts passive monitoring. The application then starts
 normal operation with `tcan4550_start(false)`.
 It does not run loopback tests or send example frames. Add application-specific
 transmit and receive handling using `tcan4550_transmit()` and `tcan4550_receive()`.
+
+The same menu provides `CONFIG_TCAN4550_DEFAULT_TX_ID` (default `0x123`,
+range `0x0`–`0x1FFFFFFF`) for future application transmit frames. CAN IDs belong
+to individual frames; there is no controller-wide transmit ID. Initialize
+application frames with the configured default as follows:
+
+```c
+#include "sdkconfig.h"
+
+tcan4550_frame_t frame = {
+    .id = CONFIG_TCAN4550_DEFAULT_TX_ID,
+    .extended = CONFIG_TCAN4550_DEFAULT_TX_ID > 0x7FFU,
+};
+```
+
+This setting does not change receive filters or override explicit frame IDs.
 
 ## Direct TI API access
 

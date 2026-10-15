@@ -6,14 +6,9 @@
 # SPDX-AI-Date: 2026-10-15
 */
 
+#include "sdkconfig.h"
 #include "tcan4550.h"
 #include "vigilant.h"
-
-/* ESP32-S3 GPIO numbers, not package pin numbers. */
-#define TCAN4550_CS_IO GPIO_NUM_10
-#define TCAN4550_MOSI_IO GPIO_NUM_11
-#define TCAN4550_SCLK_IO GPIO_NUM_12
-#define TCAN4550_MISO_IO GPIO_NUM_13
 
 /* Change this to 20000000 if the board uses a 20 MHz crystal/clock. */
 #define TCAN4550_OSCILLATOR_HZ 40000000U
@@ -23,10 +18,10 @@
 static void init_can(void) {
     const tcan4550_config_t config = {
         .spi_host = SPI2_HOST,
-        .cs_io = TCAN4550_CS_IO,
-        .mosi_io = TCAN4550_MOSI_IO,
-        .miso_io = TCAN4550_MISO_IO,
-        .sclk_io = TCAN4550_SCLK_IO,
+        .cs_io = CONFIG_TCAN4550_CS_IO,
+        .mosi_io = CONFIG_TCAN4550_MOSI_IO,
+        .miso_io = CONFIG_TCAN4550_MISO_IO,
+        .sclk_io = CONFIG_TCAN4550_SCLK_IO,
         .spi_clock_hz = 2000000U,
         .oscillator_hz = TCAN4550_OSCILLATOR_HZ,
         .nominal_bitrate = TCAN4550_NOMINAL_BITRATE,
