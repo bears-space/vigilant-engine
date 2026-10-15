@@ -25,58 +25,67 @@ The network mode of the esp node.
 ___
 ## Menuconfig Settings (Status LED)
 ___
-#### `VE_INVERT_STATUS_LED`, **bool**
-Depending on the board and LED, some activate on LOW and some activate on HIGH. To invert and turn the LED on for LOW, set this option to true.
-
-**default**: `1`
-___
 #### `VE_ENABLE_STATUS_LED`, **bool**
 Enable status LED, enable this option to use the status LED functionality in Vigilant Engine. The status LED provides visual feedback on the system's status and operations, and can optionally be used for visual output.
 
 **default**: `1`
 ___
-#### `VE_LED_TYPE`, **enum**
-Select the status LED hardware type used by Vigilant Engine.
-###### Options:
-- `VE_LED_TYPE_WS2812B` Uses a single WS2812B addressable RGB LED.
-- `VE_LED_TYPE_NONE` Uses a generic GPIO-driven LED setup.
 
-This setting is only available when `VE_ENABLE_STATUS_LED` is enabled.
-
-___
-#### `VE_STATUS_LED_MODE`, **enum**
-Choose how the status LED conveys information depending on your board or preference. This setting applies when `VE_LED_TYPE` is set to `VE_LED_TYPE_NONE`.
-###### Options:
-- `VE_STATUS_LED_MODE_RGB` Shows status information by changing colors and frequency. Suitable for a basic RGB led consisting of three separate GPIO pins.
-- `VE_STATUS_LED_MODE_BLINK` Varies frequency of blinking to match current status. Suitable for a basic led consisting of one GPIO pin.
-
-**default**: `VE_STATUS_LED_MODE_RGB`
-___
 #### `VE_STATUS_WS2812B_PIN`, **int**
 The GPIO pin used as the data output for the WS2812B status LED. This setting applies when `VE_LED_TYPE` is set to `VE_LED_TYPE_WS2812B`.
 
-**default**: `8`
-___
-#### `VE_STATUS_LED_GPIO_RED`, **int**
-The GPIO pin number for the red status LED in `RGB` mode. This setting applies when `VE_LED_TYPE` is set to `VE_LED_TYPE_NONE` and `VE_STATUS_LED_MODE` is set to `VE_STATUS_LED_MODE_RGB`.
+**default**: `1`
 
-**default**: `46`
-___
-#### `VE_STATUS_LED_GPIO_GREEN`, **int**
-The GPIO pin number for the green status LED in `RGB` mode. This setting applies when `VE_LED_TYPE` is set to `VE_LED_TYPE_NONE` and `VE_STATUS_LED_MODE` is set to `VE_STATUS_LED_MODE_RGB`.
+---
+
+#### `VE_INVERT_WS2812B_SIGNAL`, **bool**
+Depending on the board and LED, some activate on LOW and some activate on HIGH. To invert and turn the LED on for LOW, set this option to true.
 
 **default**: `0`
 ___
-#### `VE_STATUS_LED_GPIO_BLUE`, **int**
-The GPIO pin number for the blue status LED in `RGB` mode. This setting applies when `VE_LED_TYPE` is set to `VE_LED_TYPE_NONE` and `VE_STATUS_LED_MODE` is set to `VE_STATUS_LED_MODE_RGB`.
 
-**default**: `45`
-___
-#### `VE_STATUS_LED_GPIO_BLINK`, **int**
-The GPIO pin number for the single status LED in `BLINK` mode. This setting applies when `VE_LED_TYPE` is set to `VE_LED_TYPE_NONE` and `VE_STATUS_LED_MODE` is set to `VE_STATUS_LED_MODE_BLINK`.
+#### `VE_LOG_INFO_PULSE_MS`, **int**
+Set the duration of the pulse for log INFO events in milliseconds.
 
-**default**: `48`
+**default**: `35`
+
 ___
+
+#### `VE_LOG_WARN_PULSE_MS`, **int**
+Set the duration of the pulse for log WARN events in milliseconds.
+
+**default**: `80`
+
+___
+
+#### `VE_LOG_ERROR_PULSE_MS`, **int**
+Set the duration of the pulse for log ERROR events in milliseconds.
+
+**default**: `200`
+
+___
+
+#### `VE_LED_COLOR_INFO`, **hex**
+RGB color in hex format used to show INFO logs.
+
+**default**: `0x40F284`
+
+___
+
+#### `VE_LED_COLOR_WARNING`, **hex**
+RGB color in hex format used to show WARN logs.
+
+**default**: `0xFFFF00`
+
+___
+
+#### `VE_LED_COLOR_ERROR`, **hex**
+RGB color in hex format used to show ERROR logs.
+
+**default**: `0xFF0000`
+
+___
+
 ## Menuconfig Settings (WiFi)
 ___
 #### `VE_STA_SSID`, **string**

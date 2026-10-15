@@ -18,18 +18,11 @@ For setup and API usage, see the [I2C Interface](./i2c-interface.md) page.
 
 ### Status LED
 
-Depending on the mode, the status LED gives information about the status of the device differently.
+Supported LEDs: WS2812B
 
-Supported LEDs: Generic 1-Pin, Generic RGB, WS2812B
+
+ESP-IDF info logs trigger a very short green pulse. Warnings trigger a short yellow pulse. The first ESP-IDF error log latches the LED into a red blink using the configured `VE_LOG_ERROR_PULSE_MS` duration, and later info or warning logs are ignored.
+
+The colours of the log levels are configurable in the kconfig settings.
 
 For more information about the available settings, see the menuconfig and the [config page](./config.md).
-
-#### RGB-Mode
-- **Green (slow) blinking**: Info, Period is 1s
-- **Blue (faster) blinking**: Warning, Period is 600ms
-- **Red (fast) blinking**: Error, Period is 300ms
-
-#### Blink-Mode (Generic 1-Pin only)
-- **Slow blinking**: Info, Period is 2s
-- **Faster blinking**: Warning, Period is 700ms
-- **Fast blinking**: Error, Period is 100ms
