@@ -1,13 +1,8 @@
-/*
-# SPDX-AI-Disclosure: ai-assisted
-# SPDX-AI-Model: gpt-6
-# SPDX-AI-Provider: OpenAI
-# SPDX-AI-Scope: Minimal CAN bus initialization.
-# SPDX-AI-Date: 2026-10-15
-*/
-
 #include "sdkconfig.h"
 #include "tcan4550.h"
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "vigilant.h"
 
 /* Change this to 20000000 if the board uses a 20 MHz crystal/clock. */

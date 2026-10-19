@@ -49,4 +49,27 @@ menu "Vigilant Engine Configuration: Recovery"
         help
             Password for the recovery access point. Use either an empty value
             for an open access point or a password between 8 and 63 characters.
+
+    config VE_RECOVERY_AP_CHANNEL
+        int "Recovery AP WiFi channel"
+        range 1 14
+        default 6
+        help
+            WiFi channel used by the recovery access point.
+
+    config VE_RECOVERY_MAX_CONN
+        int "Recovery AP maximum connections"
+        range 1 15
+        default 2
+        help
+            Maximum number of stations that may connect to the recovery
+            access point simultaneously.
+
+    config VE_RECOVERY_CONNECTION_TIMEOUT_SECONDS
+        int "Recovery STA connection timeout (seconds)"
+        range 1 3600
+        default 10
+        help
+            Number of seconds to wait for the recovery station interface to
+            connect before continuing without a station connection.
 endmenu
