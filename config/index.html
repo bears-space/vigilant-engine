@@ -80,31 +80,23 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#menuconfig-settings-status-led">Menuconfig Settings (Status LED)</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#ve_invert_status_led-bool">VE_INVERT_STATUS_LED, bool</a>
-    </li>
     <li class="toctree-l3"><a class="reference internal" href="#ve_enable_status_led-bool">VE_ENABLE_STATUS_LED, bool</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#ve_led_type-enum">VE_LED_TYPE, enum</a>
-        <ul>
-    <li class="toctree-l4"><a class="reference internal" href="#options_1">Options:</a>
-    </li>
-        </ul>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#ve_status_led_mode-enum">VE_STATUS_LED_MODE, enum</a>
-        <ul>
-    <li class="toctree-l4"><a class="reference internal" href="#options_2">Options:</a>
-    </li>
-        </ul>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#ve_status_ws2812b_pin-int">VE_STATUS_WS2812B_PIN, int</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#ve_status_led_gpio_red-int">VE_STATUS_LED_GPIO_RED, int</a>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_invert_ws2812b_signal-bool">VE_INVERT_WS2812B_SIGNAL, bool</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#ve_status_led_gpio_green-int">VE_STATUS_LED_GPIO_GREEN, int</a>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_log_info_pulse_ms-int">VE_LOG_INFO_PULSE_MS, int</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#ve_status_led_gpio_blue-int">VE_STATUS_LED_GPIO_BLUE, int</a>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_log_warn_pulse_ms-int">VE_LOG_WARN_PULSE_MS, int</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#ve_status_led_gpio_blink-int">VE_STATUS_LED_GPIO_BLINK, int</a>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_log_error_pulse_ms-int">VE_LOG_ERROR_PULSE_MS, int</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_led_color_info-hex">VE_LED_COLOR_INFO, hex</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_led_color_warning-hex">VE_LED_COLOR_WARNING, hex</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ve_led_color_error-hex">VE_LED_COLOR_ERROR, hex</a>
     </li>
         </ul>
     </li>
@@ -126,7 +118,7 @@
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#ve_recovery_network_mode-choice">VE_RECOVERY_NETWORK_MODE, choice</a>
         <ul>
-    <li class="toctree-l4"><a class="reference internal" href="#options_3">Options:</a>
+    <li class="toctree-l4"><a class="reference internal" href="#options_1">Options:</a>
     </li>
         </ul>
     </li>
@@ -227,51 +219,44 @@
 <hr />
 <h2 id="menuconfig-settings-status-led">Menuconfig Settings (Status LED)<a class="headerlink" href="#menuconfig-settings-status-led" title="Permanent link">&para;</a></h2>
 <hr />
-<h4 id="ve_invert_status_led-bool"><code>VE_INVERT_STATUS_LED</code>, <strong>bool</strong><a class="headerlink" href="#ve_invert_status_led-bool" title="Permanent link">&para;</a></h4>
-<p>Depending on the board and LED, some activate on LOW and some activate on HIGH. To invert and turn the LED on for LOW, set this option to true.</p>
-<p><strong>default</strong>: <code>1</code></p>
-<hr />
 <h4 id="ve_enable_status_led-bool"><code>VE_ENABLE_STATUS_LED</code>, <strong>bool</strong><a class="headerlink" href="#ve_enable_status_led-bool" title="Permanent link">&para;</a></h4>
 <p>Enable status LED, enable this option to use the status LED functionality in Vigilant Engine. The status LED provides visual feedback on the system's status and operations, and can optionally be used for visual output.</p>
 <p><strong>default</strong>: <code>1</code></p>
 <hr />
-<h4 id="ve_led_type-enum"><code>VE_LED_TYPE</code>, <strong>enum</strong><a class="headerlink" href="#ve_led_type-enum" title="Permanent link">&para;</a></h4>
-<p>Select the status LED hardware type used by Vigilant Engine.</p>
-<h6 id="options_1">Options:<a class="headerlink" href="#options_1" title="Permanent link">&para;</a></h6>
-<ul>
-<li><code>VE_LED_TYPE_WS2812B</code> Uses a single WS2812B addressable RGB LED.</li>
-<li><code>VE_LED_TYPE_NONE</code> Uses a generic GPIO-driven LED setup.</li>
-</ul>
-<p>This setting is only available when <code>VE_ENABLE_STATUS_LED</code> is enabled.</p>
-<hr />
-<h4 id="ve_status_led_mode-enum"><code>VE_STATUS_LED_MODE</code>, <strong>enum</strong><a class="headerlink" href="#ve_status_led_mode-enum" title="Permanent link">&para;</a></h4>
-<p>Choose how the status LED conveys information depending on your board or preference. This setting applies when <code>VE_LED_TYPE</code> is set to <code>VE_LED_TYPE_NONE</code>.</p>
-<h6 id="options_2">Options:<a class="headerlink" href="#options_2" title="Permanent link">&para;</a></h6>
-<ul>
-<li><code>VE_STATUS_LED_MODE_RGB</code> Shows status information by changing colors and frequency. Suitable for a basic RGB led consisting of three separate GPIO pins.</li>
-<li><code>VE_STATUS_LED_MODE_BLINK</code> Varies frequency of blinking to match current status. Suitable for a basic led consisting of one GPIO pin.</li>
-</ul>
-<p><strong>default</strong>: <code>VE_STATUS_LED_MODE_RGB</code></p>
-<hr />
 <h4 id="ve_status_ws2812b_pin-int"><code>VE_STATUS_WS2812B_PIN</code>, <strong>int</strong><a class="headerlink" href="#ve_status_ws2812b_pin-int" title="Permanent link">&para;</a></h4>
-<p>The GPIO pin used as the data output for the WS2812B status LED. This setting applies when <code>VE_LED_TYPE</code> is set to <code>VE_LED_TYPE_WS2812B</code>.</p>
+<p>The GPIO pin used as the data output for the WS2812B status LED.</p>
 <p><strong>default</strong>: <code>8</code></p>
 <hr />
-<h4 id="ve_status_led_gpio_red-int"><code>VE_STATUS_LED_GPIO_RED</code>, <strong>int</strong><a class="headerlink" href="#ve_status_led_gpio_red-int" title="Permanent link">&para;</a></h4>
-<p>The GPIO pin number for the red status LED in <code>RGB</code> mode. This setting applies when <code>VE_LED_TYPE</code> is set to <code>VE_LED_TYPE_NONE</code> and <code>VE_STATUS_LED_MODE</code> is set to <code>VE_STATUS_LED_MODE_RGB</code>.</p>
-<p><strong>default</strong>: <code>46</code></p>
-<hr />
-<h4 id="ve_status_led_gpio_green-int"><code>VE_STATUS_LED_GPIO_GREEN</code>, <strong>int</strong><a class="headerlink" href="#ve_status_led_gpio_green-int" title="Permanent link">&para;</a></h4>
-<p>The GPIO pin number for the green status LED in <code>RGB</code> mode. This setting applies when <code>VE_LED_TYPE</code> is set to <code>VE_LED_TYPE_NONE</code> and <code>VE_STATUS_LED_MODE</code> is set to <code>VE_STATUS_LED_MODE_RGB</code>.</p>
+<h4 id="ve_invert_ws2812b_signal-bool"><code>VE_INVERT_WS2812B_SIGNAL</code>, <strong>bool</strong><a class="headerlink" href="#ve_invert_ws2812b_signal-bool" title="Permanent link">&para;</a></h4>
+<p>Depending on the board and LED, some activate on LOW and some activate on HIGH. To invert and turn the LED on for LOW, set this option to true.</p>
 <p><strong>default</strong>: <code>0</code></p>
 <hr />
-<h4 id="ve_status_led_gpio_blue-int"><code>VE_STATUS_LED_GPIO_BLUE</code>, <strong>int</strong><a class="headerlink" href="#ve_status_led_gpio_blue-int" title="Permanent link">&para;</a></h4>
-<p>The GPIO pin number for the blue status LED in <code>RGB</code> mode. This setting applies when <code>VE_LED_TYPE</code> is set to <code>VE_LED_TYPE_NONE</code> and <code>VE_STATUS_LED_MODE</code> is set to <code>VE_STATUS_LED_MODE_RGB</code>.</p>
-<p><strong>default</strong>: <code>45</code></p>
+<h4 id="ve_log_info_pulse_ms-int"><code>VE_LOG_INFO_PULSE_MS</code>, <strong>int</strong><a class="headerlink" href="#ve_log_info_pulse_ms-int" title="Permanent link">&para;</a></h4>
+<p>Set the duration of the pulse for log INFO events in milliseconds.</p>
+<p><strong>default</strong>: <code>35</code>
+<strong>range</strong>: <code>1..60000</code></p>
 <hr />
-<h4 id="ve_status_led_gpio_blink-int"><code>VE_STATUS_LED_GPIO_BLINK</code>, <strong>int</strong><a class="headerlink" href="#ve_status_led_gpio_blink-int" title="Permanent link">&para;</a></h4>
-<p>The GPIO pin number for the single status LED in <code>BLINK</code> mode. This setting applies when <code>VE_LED_TYPE</code> is set to <code>VE_LED_TYPE_NONE</code> and <code>VE_STATUS_LED_MODE</code> is set to <code>VE_STATUS_LED_MODE_BLINK</code>.</p>
-<p><strong>default</strong>: <code>48</code></p>
+<h4 id="ve_log_warn_pulse_ms-int"><code>VE_LOG_WARN_PULSE_MS</code>, <strong>int</strong><a class="headerlink" href="#ve_log_warn_pulse_ms-int" title="Permanent link">&para;</a></h4>
+<p>Set the duration of the pulse for log WARN events in milliseconds.</p>
+<p><strong>default</strong>: <code>80</code>
+<strong>range</strong>: <code>1..60000</code></p>
+<hr />
+<h4 id="ve_log_error_pulse_ms-int"><code>VE_LOG_ERROR_PULSE_MS</code>, <strong>int</strong><a class="headerlink" href="#ve_log_error_pulse_ms-int" title="Permanent link">&para;</a></h4>
+<p>Set the duration of the pulse for log ERROR events in milliseconds.</p>
+<p><strong>default</strong>: <code>200</code>
+<strong>range</strong>: <code>1..60000</code></p>
+<hr />
+<h4 id="ve_led_color_info-hex"><code>VE_LED_COLOR_INFO</code>, <strong>hex</strong><a class="headerlink" href="#ve_led_color_info-hex" title="Permanent link">&para;</a></h4>
+<p>RGB color in hex format used to show INFO logs.</p>
+<p><strong>default</strong>: <code>0x40F284</code></p>
+<hr />
+<h4 id="ve_led_color_warning-hex"><code>VE_LED_COLOR_WARNING</code>, <strong>hex</strong><a class="headerlink" href="#ve_led_color_warning-hex" title="Permanent link">&para;</a></h4>
+<p>RGB color in hex format used to show WARN logs.</p>
+<p><strong>default</strong>: <code>0xFFFF00</code></p>
+<hr />
+<h4 id="ve_led_color_error-hex"><code>VE_LED_COLOR_ERROR</code>, <strong>hex</strong><a class="headerlink" href="#ve_led_color_error-hex" title="Permanent link">&para;</a></h4>
+<p>RGB color in hex format used to show ERROR logs.</p>
+<p><strong>default</strong>: <code>0xFF0000</code></p>
 <hr />
 <h2 id="menuconfig-settings-wifi">Menuconfig Settings (WiFi)<a class="headerlink" href="#menuconfig-settings-wifi" title="Permanent link">&para;</a></h2>
 <hr />
@@ -299,7 +284,7 @@
 <hr />
 <h4 id="ve_recovery_network_mode-choice"><code>VE_RECOVERY_NETWORK_MODE</code>, <strong>choice</strong><a class="headerlink" href="#ve_recovery_network_mode-choice" title="Permanent link">&para;</a></h4>
 <p>Select the recovery firmware network mode.</p>
-<h6 id="options_3">Options:<a class="headerlink" href="#options_3" title="Permanent link">&para;</a></h6>
+<h6 id="options_1">Options:<a class="headerlink" href="#options_1" title="Permanent link">&para;</a></h6>
 <ul>
 <li><code>VE_RECOVERY_NETWORK_MODE_AP</code> Creates a recovery access point</li>
 <li><code>VE_RECOVERY_NETWORK_MODE_STA</code> Connects recovery to an existing WiFi network</li>
@@ -358,7 +343,7 @@ characters.</p>
   </div>
 
   <p>
-      Based on commit <a href="https://github.com/bears-space/vigilant-engine/tree/3e8c9119e342d4ab817bf59b4ae92c98b3164942" target="_blank" rel="noopener noreferrer">3e8c911</a> -
+      Based on commit <a href="https://github.com/bears-space/vigilant-engine/tree/eb11c469b1b69efc59e192d41ca83cac600442ce" target="_blank" rel="noopener noreferrer">eb11c46</a> -
     <a href="https://github.com/bears-space/vigilant-engine" target="_blank" rel="noopener noreferrer">GitHub Repository</a>
      - Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
   </p>
