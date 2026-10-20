@@ -1,3 +1,4 @@
+// clang-format off
 /*
 # SPDX-AI-Disclosure: ai-assisted
 # SPDX-AI-Model: gpt-6
@@ -5,6 +6,7 @@
 # SPDX-AI-Scope: ESP-IDF wrapper implementation, TI integration, and correctness fixes.
 # SPDX-AI-Date: 2026-10-15
 */
+// clang-format on
 
 #include "tcan4550.h"
 
@@ -148,8 +150,8 @@ static esp_err_t wait_for_register_bits(uint16_t address, uint32_t mask,
     } while ((xTaskGetTickCount() - start) <= timeout);
 
     ESP_LOGE(TAG,
-             "Register 0x%04X timeout: value=0x%08" PRIX32
-             " mask=0x%08" PRIX32 " expected=0x%08" PRIX32,
+             "Register 0x%04X timeout: value=0x%08" PRIX32 " mask=0x%08" PRIX32
+             " expected=0x%08" PRIX32,
              address, value, mask, expected);
     return ESP_ERR_TIMEOUT;
 }

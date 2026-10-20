@@ -1,3 +1,4 @@
+// clang-format off
 /*
 # SPDX-AI-Disclosure: ai-assisted
 # SPDX-AI-Model: gpt-6
@@ -5,11 +6,13 @@
 # SPDX-AI-Scope: ESP-IDF adaptation of the imported TI SPI interface and disclosure metadata.
 # SPDX-AI-Date: 2026-10-13
 */
+// clang-format on
 
 /*
  * TCAN4x5x_SPI.h
  * Version 1.1
- * Description: This file is responsible for abstracting the lower-level microcontroller SPI read and write functions
+ * Description: This file is responsible for abstracting the lower-level
+ * microcontroller SPI read and write functions
  *
  *
  * Change list:
@@ -58,15 +61,11 @@
 /* ESP-IDF port: the AHB interface is implemented in tcan4550_spi.c.
  * Calls must be enclosed by tcan4550_ti_begin()/tcan4550_ti_end(). */
 
-
 //------------------------------------------------------------------------
 // AHB Access Op Codes
 //------------------------------------------------------------------------
-#define AHB_WRITE_OPCODE                            0x61
-#define AHB_READ_OPCODE                             0x41
-
-
-
+#define AHB_WRITE_OPCODE 0x61
+#define AHB_READ_OPCODE 0x41
 
 //------------------------------------------------------------------------
 //							Write Functions
@@ -76,7 +75,6 @@ void AHB_WRITE_32(uint16_t address, uint32_t data);
 void AHB_WRITE_BURST_START(uint16_t address, uint8_t words);
 void AHB_WRITE_BURST_WRITE(uint32_t data);
 void AHB_WRITE_BURST_END(void);
-
 
 //--------------------------------------------------------------------------
 //							Read Functions

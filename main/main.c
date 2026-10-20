@@ -1,8 +1,8 @@
-#include "sdkconfig.h"
-#include "tcan4550.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "sdkconfig.h"
+#include "tcan4550.h"
 #include "vigilant.h"
 
 /* Change this to 20000000 if the board uses a 20 MHz crystal/clock. */

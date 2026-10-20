@@ -155,8 +155,7 @@ esp_err_t spi_device_polling_transmit(spi_device_handle_t d,
                 }
             } else if (addr == REG_MCAN_TXBCR) {
                 if (complete_on_cancel) {
-                    regs[REG_MCAN_TXBTO / 4] |=
-                        regs[REG_MCAN_TXBRP / 4] & word;
+                    regs[REG_MCAN_TXBTO / 4] |= regs[REG_MCAN_TXBRP / 4] & word;
                 }
                 regs[REG_MCAN_TXBRP / 4] &= ~word;
             } else if (addr == REG_MCAN_CCCR) {
@@ -176,7 +175,8 @@ esp_err_t spi_device_polling_transmit(spi_device_handle_t d,
                               REG_BITS_MCAN_CCCR_CSR | REG_BITS_MCAN_CCCR_CSA);
                     } else if ((word & 0xC0U) == 0x40U) {
                         regs[REG_MCAN_CCCR / 4] |= REG_BITS_MCAN_CCCR_INIT |
-                            REG_BITS_MCAN_CCCR_CSR | REG_BITS_MCAN_CCCR_CSA;
+                                                   REG_BITS_MCAN_CCCR_CSR |
+                                                   REG_BITS_MCAN_CCCR_CSA;
                     }
                 }
                 regs[addr / 4] = word;
@@ -207,8 +207,8 @@ static void identity(void) {
     regs[1] = 0x30353534;
     regs[REG_MCAN_ENDN / 4] = 0x87654321;
     regs[REG_DEV_MODES_AND_PINS / 4] = 0x60; /* power-on standby */
-    regs[REG_MCAN_CCCR / 4] = REG_BITS_MCAN_CCCR_INIT |
-        REG_BITS_MCAN_CCCR_CSR | REG_BITS_MCAN_CCCR_CSA;
+    regs[REG_MCAN_CCCR / 4] = REG_BITS_MCAN_CCCR_INIT | REG_BITS_MCAN_CCCR_CSR |
+                              REG_BITS_MCAN_CCCR_CSA;
 }
 static void no_resources(void) {
     assert(!heap_live && !mutex_live && !device_live && !bus_live);
@@ -236,8 +236,9 @@ int main(void) {
     identity();
     assert(tcan4550_init(&config) == ESP_OK);
     assert((regs[REG_DEV_MODES_AND_PINS / 4] & 0xC0U) == 0x80U);
-    assert(!(regs[REG_MCAN_CCCR / 4] & (REG_BITS_MCAN_CCCR_INIT |
-        REG_BITS_MCAN_CCCR_CSR | REG_BITS_MCAN_CCCR_CSA)));
+    assert(!(regs[REG_MCAN_CCCR / 4] &
+             (REG_BITS_MCAN_CCCR_INIT | REG_BITS_MCAN_CCCR_CSR |
+              REG_BITS_MCAN_CCCR_CSA)));
     assert(regs[REG_MCAN_CCCR / 4] & (1U << 5));      /* passive startup */
     assert(!(regs[REG_MCAN_RXF0C / 4] & (1U << 31))); /* blocking FIFO */
     assert((regs[REG_MCAN_TXBC / 4] & 0xFFFF) == 16U * 72U);
