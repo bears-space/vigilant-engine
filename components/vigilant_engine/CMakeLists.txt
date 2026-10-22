@@ -61,8 +61,16 @@ elseif(EXISTS "${vigilant_html_from_build}")
 endif()
 
 function(run_npm_step working_dir step_label)
+    if(CMAKE_HOST_WIN32)
+        set(npm_path "${NODE_BIN_DIR};$ENV{PATH}")
+        # cmake -E env needs an explicit interpreter for Windows batch files.
+        set(npm_launcher cmd /c call "${NPM_COMMAND}")
+    else()
+        set(npm_path "${NODE_BIN_DIR}:$ENV{PATH}")
+        set(npm_launcher "${NPM_COMMAND}")
+    endif()
     execute_process(
-        COMMAND "${CMAKE_COMMAND}" -E env "PATH=${NODE_BIN_DIR}:$ENV{PATH}" "${NPM_COMMAND}" ${ARGN}
+        COMMAND "${CMAKE_COMMAND}" -E env "PATH=${npm_path}" ${npm_launcher} ${ARGN}
         WORKING_DIRECTORY "${working_dir}"
         RESULT_VARIABLE step_result
         OUTPUT_VARIABLE step_stdout
@@ -95,13 +103,18 @@ if(NOT vigilant_html)
         )
     endif()
 
-    # Locate npm; refresh the cache if the stored path vanished (common when using nvm).
-    find_program(NPM_COMMAND npm)
-    if(NPM_COMMAND AND NOT EXISTS "${NPM_COMMAND}")
-        message(WARNING "Cached npm path (${NPM_COMMAND}) no longer exists; re-searching PATH")
-        unset(NPM_COMMAND CACHE)
-        find_program(NPM_COMMAND npm)
+    # Locate npm; refresh vanished paths and Bash launchers cached on Windows.
+    set(npm_program npm)
+    if(CMAKE_HOST_WIN32)
+        set(npm_program npm.cmd)
     endif()
+    if(NPM_COMMAND AND (NOT EXISTS "${NPM_COMMAND}" OR
+       (CMAKE_HOST_WIN32 AND NOT NPM_COMMAND MATCHES "\\.(cmd|bat|exe)$")))
+        message(STATUS "Refreshing cached npm path (${NPM_COMMAND})")
+        unset(NPM_COMMAND CACHE)
+        unset(NPM_COMMAND)
+    endif()
+    find_program(NPM_COMMAND NAMES "${npm_program}")
     if(NOT NPM_COMMAND)
         message(FATAL_ERROR "npm not found in PATH. Install Node.js or set VE_BUILD_WEB=OFF with VE_VIGILANT_HTML.")
     endif()
