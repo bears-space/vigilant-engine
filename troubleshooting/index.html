@@ -139,6 +139,12 @@
 <li>In VS Code, prefer the ESP-IDF extension over generic <code>CMake Tools</code></li>
 <li>If <code>CMake Tools</code> logs an include failure for <code>/tools/cmake/project.cmake</code>, it launched without the ESP-IDF environment</li>
 </ul>
+<p>To stop VSCode's <code>CMake Tools</code> extension from throwing CMake errors at you, try adding these settings to your <code>.vscode/settings.json</code>:</p>
+<pre><code class="language-json">{
+    &quot;cmake.configureOnOpen&quot;: false,
+    &quot;cmake.buildBeforeRun&quot;: false
+}
+</code></pre>
 <h2 id="bin-not-found"><code>BIN not found</code><a class="headerlink" href="#bin-not-found" title="Permanent link">&para;</a></h2>
 <p>Make sure your build succeeded and the binaries exist:</p>
 <ul>
@@ -180,7 +186,7 @@ correct flash size in <code>sdkconfig.defaults</code> so rebuilds keep the prope
   </div>
 
   <p>
-      Based on commit <a href="https://github.com/bears-space/vigilant-engine/tree/ed3bd54ff46b683a01fcfef7e712b4e62ab5bf98" target="_blank" rel="noopener noreferrer">ed3bd54</a> -
+      Based on commit <a href="https://github.com/bears-space/vigilant-engine/tree/781e5675526a2261bdec2b58b5699a3eab25740f" target="_blank" rel="noopener noreferrer">781e567</a> -
     <a href="https://github.com/bears-space/vigilant-engine" target="_blank" rel="noopener noreferrer">GitHub Repository</a>
      - Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
   </p>
