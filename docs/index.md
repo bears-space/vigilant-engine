@@ -17,4 +17,3 @@ peripheral layer.
 - Build and flash: [Build & Flash](build-flash.md)
 - Recovery and OTA: [Recovery & OTA](recovery-ota.md)
 - I2C interface: [I2C Interface](i2c-interface.md)
-- Flash helper reference: [Flash Helper](flash-helper.md)

@@ -18,7 +18,6 @@ nav:
   - Troubleshooting: troubleshooting.md
   - Reference:
       - Partition Table: partitions.md
-      - Flash Helper: flash-helper.md
 
 markdown_extensions:
   - admonition
