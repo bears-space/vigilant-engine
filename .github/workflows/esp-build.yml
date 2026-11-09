@@ -71,6 +71,8 @@ jobs:
         uses: espressif/install-esp-idf-action@v1
         with:
           version: v6.0
+          path: /tmp/esp-${{ github.run_id }}-${{ matrix.idf_target }}/idf
+          tools-path: /tmp/esp-${{ github.run_id }}-${{ matrix.idf_target }}
 
       - name: Build firmware
         env:
