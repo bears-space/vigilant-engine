@@ -1,3 +1,11 @@
+<!--
+# SPDX-AI-Disclosure: ai-assisted
+# SPDX-AI-Model: gpt-6
+# SPDX-AI-Provider: OpenAI
+# SPDX-AI-Scope: Documentation changes for the TI library port.
+# SPDX-AI-Date: 2026-10-13
+-->
+
 # Vigilant Engine
 
 [![Frontend and Firmware CI](https://github.com/bears-space/vigilant-engine/actions/workflows/esp-build.yml/badge.svg)](https://github.com/bears-space/vigilant-engine/actions/workflows/esp-build.yml)
@@ -68,6 +76,9 @@ Vigilant Engine includes drivers / integration for:
 - **TCAN332** – CAN transceiver
 
 These peripherals are wrapped in a common abstraction layer so they can be reused across all STARSTREAK nodes.
+
+The TCAN4550 component uses [TI's library ported to ESP-IDF](components/tcan4550/README.md).
+Its BSD-3-Clause notices are preserved in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ### Code Doumentation setup
 

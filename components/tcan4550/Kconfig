@@ -1,0 +1,39 @@
+menu "TCAN4550 Configuration"
+    config TCAN4550_CS_IO
+        int "Chip select GPIO"
+        range 0 SOC_GPIO_OUT_RANGE_MAX
+        default 10
+        help
+            GPIO number for nCS, not a package pin number.
+
+    config TCAN4550_MOSI_IO
+        int "MOSI GPIO"
+        range 0 SOC_GPIO_OUT_RANGE_MAX
+        default 11
+        help
+            GPIO number for SDI/MOSI, not a package pin number.
+
+    config TCAN4550_SCLK_IO
+        int "SPI clock GPIO"
+        range 0 SOC_GPIO_OUT_RANGE_MAX
+        default 12
+        help
+            GPIO number for SCLK, not a package pin number.
+
+    config TCAN4550_MISO_IO
+        int "MISO GPIO"
+        range 0 SOC_GPIO_IN_RANGE_MAX
+        default 13
+        help
+            GPIO number for SDO/MISO, not a package pin number.
+
+    config TCAN4550_DEFAULT_TX_ID
+        hex "Default transmit CAN ID"
+        range 0x0 0x1FFFFFFF
+        default 0x123
+        help
+            Default CAN arbitration ID for application transmit frames.
+            Use CONFIG_TCAN4550_DEFAULT_TX_ID when initializing a frame's id.
+            IDs above 0x7FF require the frame's extended flag to be true.
+            Explicit frame IDs and receive filters are unaffected.
+endmenu
